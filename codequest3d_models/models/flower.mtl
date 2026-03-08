@@ -1,0 +1,14 @@
+# CodeQuest3D — flower.mtl
+
+newmtl stem
+Kd 0.4000 0.7333 0.4157
+Ka 0.1200 0.2200 0.1247
+Ks 0.1 0.1 0.1
+Ns 32
+
+newmtl petal
+Kd 1.0000 0.3216 0.3216
+Ka 0.3000 0.0965 0.0965
+Ks 0.1 0.1 0.1
+Ns 32
+

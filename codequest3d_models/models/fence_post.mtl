@@ -1,0 +1,8 @@
+# CodeQuest3D — fence_post.mtl
+
+newmtl wood
+Kd 0.5529 0.4314 0.3882
+Ka 0.1659 0.1294 0.1165
+Ks 0.1 0.1 0.1
+Ns 32
+
