@@ -200,13 +200,41 @@ body::after {
 #inventory-body { padding: 10px 14px 14px; }
 #inventory-body .label { font-size: 9px; color: rgba(57,255,20,0.45); text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 10px; }
 #inventoryList { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-#inventoryList li {
-    font-family: 'Press Start 2P', monospace; font-size: 6px;
-    color: var(--neon-green); background: rgba(57,255,20,0.08);
-    border: 1px solid rgba(57,255,20,0.4); padding: 5px 8px;
-    text-shadow: 0 0 8px var(--neon-green);
+
+/* ── ABILITY CARDS ─────────────────────────────────────────────────── */
+.ability-card {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(57,255,20,0.06);
+    border: 1px solid rgba(57,255,20,0.35);
+    padding: 5px 9px;
     clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
-    animation: slide-in 0.3s ease forwards;
+    transition: all 0.2s;
+    cursor: default;
+}
+.ability-card:hover {
+    background: rgba(57,255,20,0.14);
+    border-color: rgba(57,255,20,0.7);
+    box-shadow: 0 0 10px rgba(57,255,20,0.25);
+}
+.ability-icon {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: var(--neon-cyan);
+    text-shadow: 0 0 6px var(--neon-cyan);
+    min-width: 18px; text-align: center;
+}
+.ability-name {
+    font-family: 'Press Start 2P', monospace; font-size: 6px;
+    color: var(--neon-green);
+    text-shadow: 0 0 8px var(--neon-green);
+}
+/* Pop-in animation for newly unlocked abilities */
+.ability-new {
+    animation: ability-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes ability-pop {
+    0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+    60%  { transform: scale(1.15) rotate(2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
 /* ── QUEST TRACKER — bottom right ───────────────────────────────── */
@@ -457,3 +485,173 @@ body::after {
     80%       { transform: translateX(6px); }
 }
 .shake { animation: shake 0.4s ease; }
+
+/* ── NPC DIALOGUE BUBBLE ─────────────────────────────────────────── */
+#dialogue-bubble {
+    position: fixed;
+    bottom: 120px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    max-width: 480px; width: 90vw;
+    background: rgba(0, 8, 20, 0.94);
+    border: 1px solid rgba(0,245,255,0.5);
+    border-radius: 4px;
+    padding: 16px 20px 14px;
+    pointer-events: none;
+    z-index: 2000;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 0 30px rgba(0,245,255,0.15), inset 0 0 20px rgba(0,245,255,0.02);
+}
+/* Speech bubble tail */
+#dialogue-bubble::after {
+    content: '';
+    position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%);
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 9px solid rgba(0,245,255,0.5);
+}
+#dialogue-bubble.dialogue-show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+#dialogue-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px; color: var(--text-primary);
+    line-height: 1.65;
+    margin-bottom: 8px;
+}
+#dialogue-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px; color: var(--neon-cyan);
+    text-shadow: 0 0 8px var(--neon-cyan);
+    letter-spacing: 0.1em;
+    text-align: right;
+    opacity: 0.7;
+}
+
+/* ── XP TOAST ────────────────────────────────────────────────────── */
+.xp-toast {
+    position: fixed;
+    top: 90px; left: 20px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    background: rgba(0, 10, 5, 0.92);
+    border: 1px solid rgba(57,255,20,0.5);
+    padding: 8px 14px;
+    pointer-events: none; z-index: 3000;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.xp-toast.xp-toast-show {
+    opacity: 1;
+    transform: translateX(0);
+}
+.xp-toast-plus {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px; color: var(--neon-green);
+    text-shadow: 0 0 12px var(--neon-green);
+}
+.xp-toast-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: rgba(57,255,20,0.55);
+    letter-spacing: 0.05em;
+}
+
+/* ── PROGRESS MAP ────────────────────────────────────────────────── */
+#progress-map {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 0;
+    background: rgba(0, 8, 20, 0.88);
+    border: 1px solid rgba(0,245,255,0.25);
+    padding: 8px 16px;
+    z-index: 100;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+}
+.map-zone {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 0 12px;
+}
+.map-zone-icon {
+    font-size: 16px;
+    filter: grayscale(1) opacity(0.4);
+    transition: all 0.4s;
+}
+.map-zone-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 5px; color: rgba(0,245,255,0.3);
+    letter-spacing: 0.05em;
+    transition: all 0.4s;
+}
+.map-zone.active .map-zone-icon { filter: none; }
+.map-zone.active .map-zone-label { color: var(--neon-cyan); text-shadow: 0 0 6px var(--neon-cyan); }
+.map-zone.complete .map-zone-icon { filter: grayscale(0) opacity(0.7); }
+.map-zone.complete .map-zone-label { color: rgba(57,255,20,0.6); }
+
+.map-connector {
+    width: 30px; height: 2px;
+    background: rgba(0,245,255,0.15);
+    position: relative;
+    transition: background 0.4s;
+}
+.map-connector.unlocked { background: rgba(57,255,20,0.5); }
+.map-connector::after {
+    content: '▶';
+    position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; color: rgba(0,245,255,0.2);
+}
+.map-connector.unlocked::after { color: rgba(57,255,20,0.6); }
+
+/* ── SMOOTHER OVERLAYS ───────────────────────────────────────────── */
+/* Success overlay — add slide-up entrance */
+#successOverlay {
+    transition: opacity 0.35s ease;
+}
+.success-hidden  { opacity: 0; pointer-events: none; }
+.success-visible { opacity: 1; pointer-events: none; }
+#success-box {
+    animation: none; /* replaced below */
+}
+.success-visible #success-box {
+    animation: overlay-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes overlay-rise {
+    from { transform: scale(0.85) translateY(20px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Level up overlay — same treatment */
+#levelUpOverlay {
+    transition: opacity 0.35s ease;
+}
+.levelup-hidden  { opacity: 0; pointer-events: none; }
+.levelup-visible { opacity: 1; pointer-events: none; }
+.levelup-visible #levelup-box {
+    animation: overlay-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Terminal — slightly improved with a glow pulse on the border when open */
+.terminal-visible {
+    box-shadow: 0 0 60px rgba(0,245,255,0.25), 0 -10px 80px rgba(0,0,0,0.9) !important;
+}
+
+/* ── SAVE INDICATOR ──────────────────────────────────────────────── */
+#save-indicator {
+    position: fixed; bottom: 20px; right: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: rgba(57,255,20,0.5);
+    pointer-events: none; z-index: 200;
+    opacity: 0;
+    transition: opacity 0.3s;
+    letter-spacing: 0.1em;
+}
+#save-indicator.saving {
+    opacity: 1;
+    animation: save-blink 0.6s ease 2;
+}
+@keyframes save-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+}

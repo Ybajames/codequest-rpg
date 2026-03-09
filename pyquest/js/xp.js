@@ -14,9 +14,10 @@ const levelText      = document.getElementById('levelText');
 const levelUpOverlay = document.getElementById('levelUpOverlay');
 const levelUpNumber  = document.getElementById('levelUpNumber');
 
-export function addXP(amount) {
+export function addXP(amount, label = 'XP Earned') {
     xpState.xp      += amount;
     xpState.totalXP += amount;
+    showXPToast(amount, label);
 
     // level up — scales by 20 XP per level
     while (xpState.xp >= xpState.xpToNext) {
@@ -33,6 +34,18 @@ function updateXPBar() {
     xpFill.style.width  = pct + '%';
     xpText.innerText    = `${xpState.xp} / ${xpState.xpToNext} XP`;
     levelText.innerText = `LVL ${xpState.level}`;
+}
+
+function showXPToast(amount, label) {
+    const toast = document.createElement('div');
+    toast.className = 'xp-toast';
+    toast.innerHTML = `<span class="xp-toast-plus">+${amount} XP</span><span class="xp-toast-label">${label}</span>`;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('xp-toast-show'));
+    setTimeout(() => {
+        toast.classList.remove('xp-toast-show');
+        setTimeout(() => toast.remove(), 500);
+    }, 1800);
 }
 
 function showLevelUp(newLevel) {

@@ -21,9 +21,7 @@ export const NPC_DATA = [
                 level: 2,
                 challenge: "Store your name as a string in a variable called name.\n\nStrings use quotes: name = 'Alice'",
                 hint: "Type:  name = 'Alice'  (any name works!)",
-                solutions: ["name='alice'", 'name="alice"', "name = 'alice'", 'name = "alice"',
-                            "name='james'", 'name="james"', "name = 'james'", 'name = "james"',
-                            "name='player'", 'name="player"', "name = 'player'", 'name = "player"'],
+                solutions: ["name={string}", "name = {string}"],
                 xp: 25,
             },
             {
@@ -80,8 +78,7 @@ export const NPC_DATA = [
                 level: 4,
                 challenge: "Create a constant called APP_NAME and set it to 'CodeQuest'",
                 hint: "Type:  APP_NAME = 'CodeQuest'",
-                solutions: ["app_name='codequest'","app_name = 'codequest'","APP_NAME='CodeQuest'","APP_NAME = 'CodeQuest'",
-                            'app_name="codequest"','app_name = "codequest"','APP_NAME="CodeQuest"','APP_NAME = "CodeQuest"'],
+                solutions: ["app_name={string}", "app_name = {string}", "APP_NAME={string}", "APP_NAME = {string}"],
                 xp: 40,
             },
             {

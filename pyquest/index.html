@@ -160,6 +160,20 @@
     </div>
 
     <!-- Entry point — all other JS files are imported from here -->
+    <script>
+        window.addEventListener('error', e => {
+            const d = document.createElement('div');
+            d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#1a0000;border-bottom:2px solid #ff3131;color:#ff5555;padding:16px 20px;font-family:monospace;font-size:13px;z-index:99999;white-space:pre-wrap;';
+            d.innerText = '❌ ERROR: ' + e.message + '\nFile: ' + (e.filename||'').split('/').pop() + '  Line: ' + e.lineno;
+            document.body.appendChild(d);
+        });
+        window.addEventListener('unhandledrejection', e => {
+            const d = document.createElement('div');
+            d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#1a0000;border-bottom:2px solid #ff3131;color:#ff5555;padding:16px 20px;font-family:monospace;font-size:13px;z-index:99999;white-space:pre-wrap;';
+            d.innerText = '❌ MODULE ERROR: ' + (e.reason?.stack || e.reason?.message || String(e.reason));
+            document.body.appendChild(d);
+        });
+    </script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -83,9 +83,23 @@ function normalizeCode(str) {
         .replace(/\s*:\s*$/, ':');
 }
 
+// Smart answer checking — handles pattern wildcards like {STRING} and {ANY_NAME}
 function checkAnswer(input, solutions) {
     const n = normalizeCode(input);
-    return solutions.some(s => normalizeCode(s) === n);
+    return solutions.some(s => {
+        const ns = normalizeCode(s);
+        // If solution contains {STRING} wildcard — match any quoted string assignment
+        if (ns.includes('{string}')) {
+            const pattern = ns.replace('{string}', '(?:\'[^\']*\'|"[^"]*")');
+            return new RegExp('^' + pattern + '$').test(n);
+        }
+        // If solution contains {ANY} wildcard — match any value
+        if (ns.includes('{any}')) {
+            const pattern = ns.replace('{any}', '.+');
+            return new RegExp('^' + pattern + '$').test(n);
+        }
+        return ns === n;
+    });
 }
 
 function submitAnswer() {

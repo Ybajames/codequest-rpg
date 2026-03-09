@@ -7,7 +7,12 @@ export function addCollider(x, z, radius) {
     colliders.push({ x, z, radius });
 }
 
-// push player out of any overlapping collider
+// remove a collider by position — used for gate opening
+export function removeCollider(x, z) {
+    const idx = colliders.findIndex(c => Math.abs(c.x - x) < 1 && Math.abs(c.z - z) < 1);
+    if (idx >= 0) colliders.splice(idx, 1);
+}
+
 export function resolveCollisions(player) {
     for (const c of colliders) {
         const dx = player.position.x - c.x;
@@ -21,7 +26,6 @@ export function resolveCollisions(player) {
     }
 }
 
-// keep player inside the island
 export function resolveIslandBoundary(player) {
     const dx = player.position.x;
     const dz = player.position.z;
