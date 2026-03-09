@@ -1,12 +1,7 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  state.js
-//  The single source of truth for the whole game.
-//  Every other file imports from here — this way we never pass scene/camera
-//  around as function arguments. Just import what you need.
-// ─────────────────────────────────────────────────────────────────────────────
+// state.js — shared scene, camera, renderer, materials, constants
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
 
-// ── RENDERER ──────────────────────────────────────────────────────────────────
+// renderer
 export const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -16,12 +11,12 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 document.body.appendChild(renderer.domElement);
 
-// ── SCENE ─────────────────────────────────────────────────────────────────────
+// scene
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);
 
-// ── CAMERA ────────────────────────────────────────────────────────────────────
+// camera
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 600);
 
 window.addEventListener('resize', () => {
@@ -30,15 +25,13 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ── WORLD CONSTANTS ───────────────────────────────────────────────────────────
-// These are used by world.js, environment.js, collision.js — all in one place
+// world size constants
 export const ISLAND_RADIUS   = 55;
 export const BOUNDARY_RADIUS = 48;
 export const OCEAN_SIZE      = 800;
 export const BEACH_WIDTH     = 10;
 
-// ── MATERIALS ─────────────────────────────────────────────────────────────────
-// All materials in one place so we never duplicate MeshLambertMaterial definitions
+// all materials in one place
 export const MAT = {
     grass:      new THREE.MeshLambertMaterial({ color: 0x4caf50 }),
     grassAlt:   new THREE.MeshLambertMaterial({ color: 0x43a047 }),
@@ -66,8 +59,7 @@ export const MAT = {
     bugLeg:     new THREE.MeshLambertMaterial({ color: 0x880e4f }),
 };
 
-// ── SHARED HELPERS ────────────────────────────────────────────────────────────
-// box() and addTo() used everywhere — exported once from here
+// shared mesh helpers
 export function box(w, h, d, mat) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.castShadow = m.receiveShadow = true;
@@ -80,9 +72,5 @@ export function addTo(parent, child, x = 0, y = 0, z = 0) {
     return child;
 }
 
-// ── PLAYER USERNAME ───────────────────────────────────────────────────────────
-// Stored here so any file can access the player's name
-// Set by the username screen before the game starts
-export const playerData = {
-    username: 'Player',
-};
+// player username — set by username screen, readable anywhere
+export const playerData = { username: 'Player' };

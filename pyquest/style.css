@@ -322,6 +322,7 @@ body::after {
 #terminal-close:hover { color: var(--neon-red); }
 #terminal-npc { padding: 14px 20px 10px; border-bottom: 1px solid rgba(0,245,255,0.1); }
 #terminal-npc-name { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--neon-cyan); text-shadow: 0 0 8px var(--neon-cyan); display: block; margin-bottom: 8px; }
+#challenge-level { display: block; font-size: 9px; color: var(--neon-yellow); letter-spacing: 0.08em; margin-bottom: 8px; text-shadow: 0 0 6px rgba(255,230,0,0.4); }
 #terminal-challenge { margin: 0; font-size: 13px; color: var(--text-primary); line-height: 1.6; }
 #terminal-editor { display: flex; background: rgba(0,0,0,0.5); border-bottom: 1px solid rgba(0,245,255,0.1); min-height: 100px; }
 .editor-line-nums { display: flex; flex-direction: column; padding: 14px 10px; background: rgba(0,245,255,0.04); border-right: 1px solid rgba(0,245,255,0.1); color: rgba(0,245,255,0.3); font-size: 13px; line-height: 1.6; user-select: none; min-width: 36px; text-align: right; gap: 2px; }

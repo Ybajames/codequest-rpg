@@ -319,9 +319,11 @@ function animate() {
                 const alreadyUnlocked = inventory.includes(npc.userData.ability);
 
                 if (alreadyUnlocked) {
-                    lessonText.innerText = `✓ ${npc.userData.ability} unlocked!\nYou already know this one, ${playerData.username}!`;
+                    lessonText.innerText = `✓ ${npc.userData.ability} unlocked!\nYou already know this one!`;
                 } else {
-                    lessonText.innerText = npc.userData.lesson + '\n\n[E] to take the challenge!';
+                    const idx = npc.userData.currentChallenge || 0;
+                    const total = npc.userData.challenges.length;
+                    lessonText.innerText = npc.userData.lesson + `\nChallenge ${idx + 1}/${total}  [E] to start`;
                     if (controls.keys['KeyE']) {
                         openTerminal(npc.userData);
                         controls.keys['KeyE'] = false;

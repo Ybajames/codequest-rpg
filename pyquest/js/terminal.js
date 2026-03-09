@@ -1,24 +1,15 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  terminal.js
-//  The code terminal — pops up when player presses E near an NPC.
-//  Student types real Python, we check it against accepted solutions.
-//
-//  Exports:
-//    terminalOpen    — boolean, read by main.js to freeze player movement
-//    openTerminal()  — call with npc.userData when player presses E
-//    closeTerminal() — called by ESC or X button
-// ─────────────────────────────────────────────────────────────────────────────
+// terminal.js — code terminal open/close/answer check
 import { renderer } from './state.js';
 import { unlockAbility } from './inventory.js';
 import { addXP } from './xp.js';
 import { playCorrect, playWrong, playUnlock } from './audio.js';
 
-// ── STATE ─────────────────────────────────────────────────────────────────────
 export let terminalOpen = false;
-let currentNPC   = null;
-let attemptCount = 0;
+let currentNPC       = null;
+let currentChallenge = null;
+let attemptCount     = 0;
 
-// ── DOM REFERENCES ────────────────────────────────────────────────────────────
+// dom refs
 const terminalEl        = document.getElementById('terminal');
 const terminalTitle     = document.getElementById('terminal-title');
 const terminalNPCName   = document.getElementById('terminal-npc-name');
@@ -30,163 +21,147 @@ const feedbackText      = document.getElementById('feedback-text');
 const hintEl            = document.getElementById('terminal-hint');
 const hintText          = document.getElementById('hint-text');
 const attemptsText      = document.getElementById('attempts-text');
+const challengeLevel    = document.getElementById('challenge-level');
 const successOverlay    = document.getElementById('successOverlay');
 const successAbility    = document.getElementById('success-ability');
 const crosshair         = document.getElementById('crosshair');
 
-// We need a reference to the overlay to hide it while terminal is open
-// This is set from main.js after the overlay is created
 export let overlayRef = null;
 export function setOverlayRef(el) { overlayRef = el; }
 
-// ── OPEN TERMINAL ─────────────────────────────────────────────────────────────
-// Slides the terminal up, releases pointer lock, focuses the input
+// open terminal with the NPC's current active challenge
 export function openTerminal(npcData) {
-    currentNPC   = npcData;
+    currentNPC = npcData;
     terminalOpen = true;
     attemptCount = 0;
 
-    // Load this NPC's challenge into the terminal
+    // get the current challenge for this NPC
+    const idx = npcData.currentChallenge || 0;
+    currentChallenge = npcData.challenges[idx];
+
+    // load content
     terminalNPCName.innerText   = npcData.name;
-    terminalChallenge.innerText = npcData.challenge;
+    terminalChallenge.innerText = currentChallenge.challenge;
     terminalTitle.innerText     = npcData.ability.toLowerCase() + '_challenge.py';
     attemptsText.innerText      = 'Attempts: 0';
 
-    // Reset all UI state
+    // show challenge level badge e.g. "Level 1 / 5 — 20 XP"
+    challengeLevel.innerText = `Challenge ${idx + 1} / ${npcData.challenges.length}  ·  +${currentChallenge.xp} XP`;
+
+    // reset ui
     codeInput.value      = '';
     feedbackEl.className = 'feedback-hidden';
     hintEl.className     = 'hint-hidden';
-    hintText.innerText   = npcData.hint;
+    hintText.innerText   = currentChallenge.hint;
 
-    // Slide terminal up into view
     terminalEl.className = 'terminal-visible';
-
-    // Hide crosshair — player isn't aiming at anything right now
     crosshair.classList.add('hidden');
-
-    // Release pointer lock so player can type freely
     document.exitPointerLock();
     if (overlayRef) overlayRef.style.display = 'none';
 
-    // Auto-focus the code input after the slide animation finishes
     setTimeout(() => codeInput.focus(), 350);
 }
 
-// ── CLOSE TERMINAL ────────────────────────────────────────────────────────────
-// Slides terminal back down, re-locks pointer
 export function closeTerminal() {
     terminalOpen = false;
     currentNPC   = null;
-
+    currentChallenge = null;
     terminalEl.className = 'terminal-hidden';
     crosshair.classList.remove('hidden');
-
-    // Re-engage pointer lock after a small delay
     setTimeout(() => renderer.domElement.requestPointerLock(), 100);
 }
 
-// ── ANSWER NORMALIZER ─────────────────────────────────────────────────────────
-// We normalize both the student's input and each accepted solution before comparing.
-// This means extra spaces, different spacing around operators — all accepted.
-// "score = 10", "score=10", "  score  =  10  " all count as correct.
+// normalize before comparing — handles spacing differences
 function normalizeCode(str) {
-    return str
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, ' ')        // collapse multiple spaces
-        .replace(/\s*=\s*/g, '=')    // normalize spaces around =
-        .replace(/\s*>\s*/g, '>')    // normalize spaces around >
+    return str.trim().toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/\s*=\s*/g, '=')
+        .replace(/\s*>\s*/g, '>')
         .replace(/\s*<\s*/g, '<')
-        .replace(/\s*\(\s*/g, '(')   // normalize spaces inside parens
+        .replace(/\s*\(\s*/g, '(')
         .replace(/\s*\)\s*/g, ')')
-        .replace(/\s*:\s*$/, ':');   // normalize trailing colon
+        .replace(/\s*:\s*$/, ':');
 }
 
 function checkAnswer(input, solutions) {
-    const normalized = normalizeCode(input);
-    return solutions.some(sol => normalizeCode(sol) === normalized);
+    const n = normalizeCode(input);
+    return solutions.some(s => normalizeCode(s) === n);
 }
 
-// ── SUBMIT ANSWER ─────────────────────────────────────────────────────────────
 function submitAnswer() {
-    if (!currentNPC) return;
-
+    if (!currentNPC || !currentChallenge) return;
     const input = codeInput.value;
-    if (!input.trim()) return; // ignore empty submit
+    if (!input.trim()) return;
 
     attemptCount++;
     attemptsText.innerText = `Attempts: ${attemptCount}`;
 
-    if (checkAnswer(input, currentNPC.solutions)) {
-        // ── CORRECT ──
+    if (checkAnswer(input, currentChallenge.solutions)) {
+        // correct
         feedbackEl.className   = 'feedback-success';
         feedbackIcon.innerText = '✓';
         feedbackText.innerText = 'Correct! Great work!';
 
-        // Play correct chime immediately, unlock sound plays with the flash
         playCorrect();
         setTimeout(() => playUnlock(), 700);
 
-        // Unlock the ability — this also updates the quest tracker
-        unlockAbility(currentNPC.ability);
+        // award XP for this specific challenge
+        addXP(currentChallenge.xp, 'Challenge Complete!');
 
-        // Award XP — 50 per completed challenge
-        addXP(50, 'Challenge Complete!');
+        // mark this challenge done + advance to next
+        const idx = currentNPC.currentChallenge || 0;
+        currentNPC.completed.push(idx);
+        const nextIdx = idx + 1;
 
-        // Close terminal after a moment, then show the big success flash
-        const abilityName = currentNPC.ability;
-        setTimeout(() => {
-            closeTerminal();
-            showSuccessFlash(abilityName);
-        }, 800);
+        if (nextIdx >= currentNPC.challenges.length) {
+            // all challenges for this NPC done — unlock ability
+            unlockAbility(currentNPC.ability);
+            const abilityName = currentNPC.ability;
+            setTimeout(() => {
+                closeTerminal();
+                showSuccessFlash(abilityName);
+            }, 800);
+        } else {
+            // more challenges left — advance and show next after delay
+            currentNPC.currentChallenge = nextIdx;
+            feedbackText.innerText = `Correct! Challenge ${nextIdx + 1} unlocked! 🔓`;
+            setTimeout(() => {
+                openTerminal(currentNPC);
+            }, 1200);
+        }
 
     } else {
-        // ── WRONG ──
+        // wrong
         feedbackEl.className   = 'feedback-error';
         feedbackIcon.innerText = '✗';
         playWrong();
 
-        // Escalating hints based on attempt count
         if (attemptCount === 1) {
-            feedbackText.innerText = "Not quite. Check your spelling and try again.";
+            feedbackText.innerText = "Not quite. Check your syntax and try again.";
         } else if (attemptCount === 2) {
-            feedbackText.innerText = "Still not right. Try the Hint button!";
-            hintEl.className = ''; // auto-show hint after 2 wrong tries
+            feedbackText.innerText = "Still not right — try the Hint button!";
+            hintEl.className = '';
         } else {
             feedbackText.innerText = "Keep going! The hint shows the exact answer.";
             hintEl.className = '';
         }
 
-        // Shake the editor — visual feedback that something went wrong
         codeInput.classList.add('shake');
         setTimeout(() => codeInput.classList.remove('shake'), 400);
-
         codeInput.focus();
     }
 }
 
-// ── SUCCESS FLASH ─────────────────────────────────────────────────────────────
-// Big centered overlay — "ABILITY UNLOCKED" — fades out after 2.5 seconds
 function showSuccessFlash(abilityName) {
     successAbility.innerText = abilityName;
     successOverlay.className = 'success-visible';
     setTimeout(() => { successOverlay.className = 'success-hidden'; }, 2500);
 }
 
-// ── BUTTON + KEYBOARD EVENTS ──────────────────────────────────────────────────
+// button events
 document.getElementById('btn-submit').addEventListener('click', submitAnswer);
-
-document.getElementById('btn-hint').addEventListener('click', () => {
-    hintEl.className = '';
-    codeInput.focus();
-});
-
+document.getElementById('btn-hint').addEventListener('click', () => { hintEl.className = ''; codeInput.focus(); });
 document.getElementById('terminal-close').addEventListener('click', closeTerminal);
-
-// Enter = submit, Shift+Enter = new line (normal behaviour)
 codeInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        submitAnswer();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitAnswer(); }
 });
