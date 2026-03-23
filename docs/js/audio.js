@@ -257,3 +257,71 @@ export function startAmbience() {
     // First bird chirp after a short random delay
     setTimeout(scheduleBirdChirp, 1500 + Math.random() * 2000);
 }
+
+// ── ISLAND 2 — SNOW + OCCASIONAL BELLS ───────────────────────────────────────
+let snowGainNode = null;
+let _i2Active    = false;
+
+export function enterIsland2() {
+    if (!ctx || _i2Active) return;
+    _i2Active = true;
+
+    // ── Soft snow hiss — quiet high-frequency noise ──
+    const bufSize = ctx.sampleRate * 3;
+    const buf     = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data    = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const src    = ctx.createBufferSource();
+    src.buffer   = buf;
+    src.loop     = true;
+
+    // High-pass at 4000Hz — only the soft hiss of snow, nothing else
+    const hp = ctx.createBiquadFilter();
+    hp.type            = 'highpass';
+    hp.frequency.value = 4000;
+
+    snowGainNode = ctx.createGain();
+    snowGainNode.gain.value = 0;
+
+    src.connect(hp);
+    hp.connect(snowGainNode);
+    snowGainNode.connect(ctx.destination);
+    src.start();
+
+    // Fade snow hiss in gently
+    snowGainNode.gain.setTargetAtTime(0.01, ctx.currentTime, 2.0);
+
+    // Start sparse bells
+    scheduleBell();
+}
+
+export function exitIsland2() {
+    if (!ctx || !_i2Active) return;
+    _i2Active = false;
+    if (snowGainNode) snowGainNode.gain.setTargetAtTime(0, ctx.currentTime, 1.5);
+}
+
+// Bell notes — simple pure sine, long decay, very quiet
+const BELL_NOTES = [523.25, 659.25, 783.99, 1046.5];
+
+function scheduleBell() {
+    if (!_i2Active) return;
+
+    const now  = ctx.currentTime;
+    const freq = BELL_NOTES[Math.floor(Math.random() * BELL_NOTES.length)];
+    const g    = ctx.createGain();
+    g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.09, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 3.5); // long natural decay
+
+    const osc  = ctx.createOscillator();
+    osc.type   = 'sine';
+    osc.frequency.value = freq;
+    osc.connect(g);
+    osc.start(now);
+    osc.stop(now + 3.6);
+
+    // Next bell: 15 to 40 seconds — very infrequent
+    setTimeout(scheduleBell, 15000 + Math.random() * 25000);
+}

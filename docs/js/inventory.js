@@ -3,7 +3,7 @@ export const inventory = [];
 
 const inventoryList = document.getElementById('inventoryList');
 
-const flags = { bugDefeated: false, islandCrossed: false };
+const flags = { bugDefeated: false, islandCrossed: false, bossDefeated: false };
 
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 const SAVE_KEY = 'codequest_save';
@@ -71,11 +71,13 @@ const QUESTS = [
     { id: 'learn_functions', label: '⚙️ Learn Functions',        check: () => inventory.includes('Function'),  done: false },
     { id: 'reach_peak',      label: '🏔️ Reach the Peak',         check: () => inventory.includes('Class'),     done: false },
     { id: 'completionist',   label: '🏆 Master all 11 Skills',   check: () => ALL_SKILLS.every(a => inventory.includes(a)) && flags.bugDefeated, done: false },
+    { id: 'defeat_boss',     label: '💀 Defeat the Final Boss',  check: () => flags.bossDefeated, done: false },
 ];
 
 export function completeQuest(id) {
     if (id === 'defeat_bug')    flags.bugDefeated   = true;
     if (id === 'cross_bridge')  flags.islandCrossed = true;
+    if (id === 'defeat_boss')   flags.bossDefeated  = true;
     saveProgress();
     updateQuests();
 }
@@ -98,3 +100,8 @@ function renderQuestTracker() {
 }
 
 renderQuestTracker();
+
+// How many quests are currently completed — used by main.js to trigger boss spawn
+export function questsDoneCount() {
+    return QUESTS.filter(q => q.done).length;
+}

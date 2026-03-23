@@ -9,20 +9,26 @@ import { playerGroup, cameraPivot, pArmL, pArmR, pLegL, pLegR, controls, GRAVITY
 import { resolveCollisions, resolveIslandBoundary } from './collision.js';
 import { npcs }                         from './npcs.js';
 import { bugGroup, bugLight, bugState } from './enemies.js';
-import { inventory, completeQuest, loadProgress } from './inventory.js';
+import { inventory, completeQuest, loadProgress, questsDoneCount } from './inventory.js';
 import { addXP }                        from './xp.js';
-import { initAudio, setOceanVolume }    from './audio.js';
+import { initAudio, setOceanVolume, enterIsland2, exitIsland2 } from './audio.js';
 import { terminalOpen, openTerminal, closeTerminal, setOverlayRef } from './terminal.js';
 import {
     i2Npcs, I2, getI2Height, gateState, openGate, gateLock,
     snowParticles, snowPos, snowVel, SNOW_COUNT,
     peakLight, BRIDGE_END_Z, lanternLights,
 } from './island2.js';
+import {
+    bossState, bossGroup, bossRing, shards, spawnBoss, defeatBoss,
+    bossLightRed, bossLightPurp, BOSS_X_POS, BOSS_Z_POS,
+} from './boss.js';
 
 // ── ZONE STATE ────────────────────────────────────────────────────────────────
 let zone = 'island'; // 'island' | 'island2'
 const STARTER_SKILLS = ['Variable','Constant','Print','Input','Logic','Loop'];
 function allStarterUnlocked() { return STARTER_SKILLS.every(s => inventory.includes(s)); }
+const ALL_SKILLS = ['Variable','Constant','Print','Input','Logic','Loop','Function','List','String','Dictionary','Class'];
+function allSkillsUnlocked() { return ALL_SKILLS.every(s => inventory.includes(s)); }
 
 // ── PROGRESS MAP — created dynamically so index.html needs no changes ─────────
 const progressMap = document.createElement('div');
@@ -214,6 +220,7 @@ function hideDialogue() {
 // ── ZONE TRANSITIONS ──────────────────────────────────────────────────────────
 function goToIsland2() {
     zone = 'island2';
+    enterIsland2();
     playerGroup.position.set(I2.x + 16, getI2Height(I2.x + 16, I2.z + 26), I2.z + 26);
     scene.background = new THREE.Color(0x6080a0);
     scene.fog = new THREE.FogExp2(0x7090b0, 0.004);
@@ -222,6 +229,7 @@ function goToIsland2() {
 }
 function goToIsland1() {
     zone = 'island';
+    exitIsland2();
     playerGroup.position.set(0, 0, -50);
     scene.background = new THREE.Color(0x87ceeb);
     scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);
@@ -370,6 +378,26 @@ function animate() {
         bugLight.intensity  = 1.0 + Math.sin(t*5)*0.5;
     }
 
+    // 8b. boss animation
+    if (bossState.alive) {
+        bossGroup.rotation.y = t * 0.4;
+        bossLightRed.intensity  = 2.5 + Math.sin(t * 3.0) * 1.0;
+        bossLightPurp.intensity = 1.5 + Math.sin(t * 2.2 + 1) * 0.8;
+        bossRing.material.opacity = 0.35 + Math.sin(t * 2.5) * 0.2;
+        shards.forEach((s, i) => {
+            s.userData.orbitAngle += s.userData.orbitSpeed * dt;
+            const a = s.userData.orbitAngle;
+            const r = s.userData.orbitRadius;
+            s.position.set(
+                BOSS_X_POS + Math.cos(a) * r,
+                s.userData.orbitHeight + Math.sin(t * 1.5 + i) * 0.4,
+                BOSS_Z_POS + Math.sin(a) * r
+            );
+            s.rotation.y = a * 2;
+            s.rotation.x = t * 0.8 + i;
+        });
+    }
+
     // 9. interactions
     if (!terminalOpen) {
         let interacting = false;
@@ -403,6 +431,30 @@ function animate() {
                     controls.keys['KeyE'] = false;
                 }
             }
+            // boss spawn check — triggers when 4+ quests done
+            if (!bossState.spawned && questsDoneCount() >= 7) spawnBoss();
+
+            // boss interaction
+            if (bossState.alive) {
+                const bossDist = playerGroup.position.distanceTo(bossGroup.position);
+                if (bossDist < 5) {
+                    interacting = true;
+                    if (allSkillsUnlocked()) {
+                        lessonText.innerText = '💀 FINAL BOSS\nYou have all skills!\n[E] to unleash your power!';
+                        if (controls.keys['KeyE']) {
+                            defeatBoss();
+                            completeQuest('defeat_boss');
+                            addXP(200);
+                            lessonText.innerText = '🏆 FINAL BOSS DEFEATED!\nYou are a Python Master!';
+                            controls.keys['KeyE'] = false;
+                        }
+                    } else {
+                        const have = ALL_SKILLS.filter(a => inventory.includes(a)).length;
+                        lessonText.innerText = `💀 FINAL BOSS\nToo powerful!\nUnlock all 11 skills first.\n${have} / 11 skills`;
+                    }
+                }
+            }
+
             // bridge gate
             const gateDist = Math.sqrt(playerGroup.position.x**2 + (playerGroup.position.z - (-54))**2);
             if (gateDist < 5) {
@@ -450,7 +502,13 @@ function animate() {
                 const hint = h > 18 ? '🏔️ Almost at the peak!' : h > 12 ? '⛰️ Halfway up!' : h > 5 ? '🌿 Keep climbing north!' : '🌉 Head toward the mountain!';
                 lessonText.innerText = `${hint}\nFind each teacher on the way up.`;
             } else {
-                lessonText.innerText = `Welcome, ${playerData.username}!\nExplore the island.\nWalk to a glowing teacher!`;
+                if (bossState.alive) {
+                    lessonText.innerText = `⚠ FINAL BOSS NEARBY!\nHead north — but get all 11 skills first!`;
+                } else if (bossState.defeated) {
+                    lessonText.innerText = `🏆 You defeated the Final Boss!\nPython Master, ${playerData.username}!`;
+                } else {
+                    lessonText.innerText = `Welcome, ${playerData.username}!\nExplore the island.\nWalk to a glowing teacher!`;
+                }
             }
         }
     }
