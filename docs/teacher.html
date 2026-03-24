@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CodeQuest — Teacher Dashboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Press+Start+2P&display=swap');
+        :root {
+            --cyan:   #00f5ff;
+            --green:  #39ff14;
+            --purple: #bf5fff;
+            --red:    #ff3131;
+            --yellow: #ffe600;
+            --bg:     #020c14;
+            --panel:  rgba(0,20,40,0.9);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: #e0faff;
+            font-family: 'Share Tech Mono', monospace;
+            min-height: 100vh;
+        }
+        /* ── LOGIN ── */
+        #login-screen {
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh;
+        }
+        #login-box {
+            background: var(--panel);
+            border: 1px solid rgba(0,245,255,0.3);
+            padding: 50px 60px;
+            text-align: center;
+            max-width: 420px; width: 90vw;
+            clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+        }
+        #login-box h1 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 11px; color: var(--cyan);
+            text-shadow: 0 0 20px var(--cyan);
+            margin-bottom: 8px;
+        }
+        #login-box p { font-size: 11px; color: rgba(0,245,255,0.45); margin-bottom: 32px; }
+        #login-box input {
+            width: 100%; background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(0,245,255,0.3);
+            color: var(--green); font-family: 'Share Tech Mono', monospace;
+            font-size: 16px; padding: 12px 14px;
+            outline: none; margin-bottom: 12px;
+            caret-color: var(--cyan);
+        }
+        #login-box button {
+            width: 100%;
+            font-family: 'Press Start 2P', monospace; font-size: 9px;
+            color: var(--green); background: rgba(57,255,20,0.1);
+            border: 2px solid var(--green); padding: 14px;
+            cursor: pointer; transition: all 0.2s;
+            text-shadow: 0 0 8px var(--green);
+        }
+        #login-box button:hover { background: rgba(57,255,20,0.2); }
+        #login-error { color: var(--red); font-size: 10px; margin-top: 10px; min-height: 16px; }
+
+        /* ── DASHBOARD ── */
+        #dashboard { display: none; padding: 24px; }
+        #dash-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 28px; flex-wrap: wrap; gap: 12px;
+        }
+        #dash-header h1 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px; color: var(--cyan);
+            text-shadow: 0 0 16px var(--cyan);
+        }
+        #dash-header p { font-size: 11px; color: rgba(0,245,255,0.5); margin-top: 4px; }
+        #btn-refresh {
+            font-family: 'Press Start 2P', monospace; font-size: 8px;
+            color: var(--cyan); background: rgba(0,245,255,0.08);
+            border: 1px solid rgba(0,245,255,0.35); padding: 10px 16px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        #btn-refresh:hover { background: rgba(0,245,255,0.18); }
+
+        /* ── STATS ROW ── */
+        #stats-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px; margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--panel);
+            border: 1px solid rgba(0,245,255,0.2);
+            padding: 18px 20px;
+            clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+        }
+        .stat-label { font-size: 9px; color: rgba(0,245,255,0.45); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; }
+        .stat-value { font-family: 'Press Start 2P', monospace; font-size: 18px; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
+
+        /* ── TABLE ── */
+        #table-wrap {
+            background: var(--panel);
+            border: 1px solid rgba(0,245,255,0.2);
+            overflow-x: auto;
+        }
+        #table-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(0,245,255,0.15);
+            background: rgba(0,245,255,0.04);
+        }
+        #table-header h2 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px; color: var(--green);
+            text-shadow: 0 0 10px var(--green);
+        }
+        #search {
+            background: rgba(0,0,0,0.4); border: 1px solid rgba(0,245,255,0.25);
+            color: var(--cyan); font-family: 'Share Tech Mono', monospace;
+            font-size: 12px; padding: 6px 12px; outline: none; width: 200px;
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 700px; }
+        th {
+            text-align: left; padding: 12px 16px;
+            font-family: 'Press Start 2P', monospace; font-size: 6px;
+            color: rgba(0,245,255,0.5); text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-bottom: 1px solid rgba(0,245,255,0.1);
+            background: rgba(0,245,255,0.02);
+        }
+        td {
+            padding: 12px 16px; font-size: 12px;
+            border-bottom: 1px solid rgba(0,245,255,0.06);
+            color: #b0d8e8;
+            transition: background 0.15s;
+        }
+        tr:hover td { background: rgba(0,245,255,0.04); }
+        .badge {
+            display: inline-block; padding: 2px 8px; font-size: 9px;
+            border-radius: 2px; margin: 1px;
+        }
+        .badge-done   { background: rgba(57,255,20,0.15);  color: var(--green);  border: 1px solid rgba(57,255,20,0.3); }
+        .badge-island { background: rgba(0,245,255,0.12);  color: var(--cyan);   border: 1px solid rgba(0,245,255,0.3); }
+        .badge-boss   { background: rgba(255,49,49,0.12);  color: var(--red);    border: 1px solid rgba(255,49,49,0.3); }
+        .badge-none   { background: rgba(255,255,255,0.04);color: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.1); }
+        .level-pill {
+            display: inline-block;
+            font-family: 'Press Start 2P', monospace; font-size: 7px;
+            padding: 3px 8px;
+            color: var(--yellow); border: 1px solid rgba(255,230,0,0.35);
+            background: rgba(255,230,0,0.08);
+        }
+        .username-cell { color: var(--cyan); font-weight: bold; }
+        .skills-count { color: var(--green); font-family: 'Press Start 2P', monospace; font-size: 9px; }
+        .last-seen { font-size: 10px; color: rgba(0,245,255,0.4); }
+        #loading { text-align: center; padding: 40px; color: rgba(0,245,255,0.4); font-size: 12px; }
+        #no-students { text-align: center; padding: 40px; color: rgba(0,245,255,0.3); font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="login-screen">
+    <div id="login-box">
+        <h1>TEACHER DASHBOARD</h1>
+        <p>CodeQuest RPG · Class Monitor</p>
+        <input type="password" id="teacher-pass" placeholder="Enter teacher password" />
+        <button onclick="checkLogin()">▶ ENTER DASHBOARD</button>
+        <p id="login-error"></p>
+    </div>
+</div>
+
+<!-- ── DASHBOARD ── -->
+<div id="dashboard">
+    <div id="dash-header">
+        <div>
+            <h1>📊 STUDENT PROGRESS</h1>
+            <p>CodeQuest RPG — Live Class Monitor</p>
+        </div>
+        <button id="btn-refresh" onclick="loadDashboard()">↻ REFRESH</button>
+    </div>
+
+    <div id="stats-row">
+        <div class="stat-card">
+            <div class="stat-label">Total Students</div>
+            <div class="stat-value" id="stat-total">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">On Mountain</div>
+            <div class="stat-value" id="stat-island2">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Boss Defeated</div>
+            <div class="stat-value" id="stat-boss">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Avg XP</div>
+            <div class="stat-value" id="stat-xp">—</div>
+        </div>
+    </div>
+
+    <div id="table-wrap">
+        <div id="table-header">
+            <h2>// ALL STUDENTS</h2>
+            <input id="search" placeholder="Search username..." oninput="filterTable()" />
+        </div>
+        <div id="loading">Loading student data...</div>
+        <table id="student-table" style="display:none">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Level / XP</th>
+                    <th>Skills</th>
+                    <th>Milestones</th>
+                    <th>Last Seen</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+        <div id="no-students" style="display:none">No students yet — share the game link!</div>
+    </div>
+</div>
+
+<script type="module">
+    import { getAllStudents } from './js/supabase.js';
+
+    // ── TEACHER PASSWORD ──────────────────────────────────────────────────────
+    // Change this to whatever you want
+    const TEACHER_PASSWORD = 'codequest2025';
+
+    window.checkLogin = function() {
+        const pass = document.getElementById('teacher-pass').value;
+        if (pass === TEACHER_PASSWORD) {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('dashboard').style.display    = 'block';
+            loadDashboard();
+        } else {
+            document.getElementById('login-error').innerText = 'Wrong password. Try again.';
+        }
+    };
+
+    document.getElementById('teacher-pass').addEventListener('keydown', e => {
+        if (e.key === 'Enter') window.checkLogin();
+    });
+
+    const ALL_SKILLS = ['Variable','Constant','Print','Input','Logic','Loop','Function','List','String','Dictionary','Class'];
+
+    window.loadDashboard = async function() {
+        document.getElementById('loading').style.display       = 'block';
+        document.getElementById('student-table').style.display = 'none';
+        document.getElementById('no-students').style.display   = 'none';
+
+        const students = await getAllStudents();
+
+        document.getElementById('loading').style.display = 'none';
+
+        if (!students || students.length === 0) {
+            document.getElementById('no-students').style.display = 'block';
+            return;
+        }
+
+        // stats
+        const onMountain   = students.filter(s => s.islandCrossed).length;
+        const bossDefeated = students.filter(s => s.bossDefeated).length;
+        const avgXP        = Math.round(students.reduce((a,s) => a + s.xp, 0) / students.length);
+        document.getElementById('stat-total').innerText   = students.length;
+        document.getElementById('stat-island2').innerText = onMountain;
+        document.getElementById('stat-boss').innerText    = bossDefeated;
+        document.getElementById('stat-xp').innerText      = avgXP;
+
+        // table
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        students.forEach(s => {
+            const skillCount  = s.inventory.length;
+            const lastSeen    = new Date(s.lastSeen);
+            const timeAgo     = getTimeAgo(lastSeen);
+            const milestones  = [
+                s.bugDefeated   ? `<span class="badge badge-done">🐛 Bug</span>`       : '',
+                s.islandCrossed ? `<span class="badge badge-island">🌉 Bridge</span>`  : '',
+                s.bossDefeated  ? `<span class="badge badge-boss">💀 Boss</span>`      : '',
+            ].filter(Boolean).join('') || `<span class="badge badge-none">none yet</span>`;
+
+            const tr = document.createElement('tr');
+            tr.dataset.username = s.username.toLowerCase();
+            tr.innerHTML = `
+                <td class="username-cell">${s.username}</td>
+                <td><span class="level-pill">LVL ${s.level}</span> <span style="font-size:10px;color:rgba(0,245,255,0.5)">${s.xp} XP</span></td>
+                <td><span class="skills-count">${skillCount} / 11</span><br><span style="font-size:9px;color:rgba(57,255,20,0.5)">${s.inventory.join(', ') || '—'}</span></td>
+                <td>${milestones}</td>
+                <td class="last-seen">${timeAgo}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('student-table').style.display = 'table';
+    };
+
+    window.filterTable = function() {
+        const q = document.getElementById('search').value.toLowerCase();
+        document.querySelectorAll('#table-body tr').forEach(tr => {
+            tr.style.display = tr.dataset.username.includes(q) ? '' : 'none';
+        });
+    };
+
+    function getTimeAgo(date) {
+        const secs = Math.floor((Date.now() - date) / 1000);
+        if (secs < 60)   return 'just now';
+        if (secs < 3600) return Math.floor(secs/60) + 'm ago';
+        if (secs < 86400)return Math.floor(secs/3600) + 'h ago';
+        return Math.floor(secs/86400) + 'd ago';
+    }
+</script>
+</body>
+</html>

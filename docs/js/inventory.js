@@ -1,3 +1,4 @@
+import { saveToCloud, loadFromCloud, ensureStudent } from './supabase.js';
 // inventory.js — ability unlocks + quest tracker
 export const inventory = [];
 
@@ -18,9 +19,36 @@ export function saveProgress() {
         const ind = document.getElementById('save-indicator');
         if (ind) { ind.classList.remove('saving'); void ind.offsetWidth; ind.classList.add('saving'); setTimeout(() => ind.classList.remove('saving'), 1500); }
     } catch(e) {}
+    // also save to cloud
+    const username = window._playerUsername;
+    if (username) {
+        saveToCloud(username, {
+            inventory:     [...inventory],
+            bugDefeated:   flags.bugDefeated,
+            islandCrossed: flags.islandCrossed,
+            bossDefeated:  flags.bossDefeated,
+            xp:            window._xpTotal  || 0,
+            level:         window._xpLevel  || 1,
+        });
+    }
 }
 
-export function loadProgress() {
+export async function loadProgress() {
+    const username = window._playerUsername;
+    // try cloud first
+    if (username) {
+        await ensureStudent(username);
+        const cloud = await loadFromCloud(username);
+        if (cloud) {
+            cloud.inventory.forEach(name => unlockAbility(name, true));
+            flags.bugDefeated   = cloud.bugDefeated;
+            flags.islandCrossed = cloud.islandCrossed;
+            flags.bossDefeated  = cloud.bossDefeated;
+            updateQuests();
+            return;
+        }
+    }
+    // fallback to localStorage
     try {
         const raw = localStorage.getItem(SAVE_KEY);
         if (!raw) return;

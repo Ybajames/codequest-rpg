@@ -10,7 +10,7 @@ import { resolveCollisions, resolveIslandBoundary } from './collision.js';
 import { npcs }                         from './npcs.js';
 import { bugGroup, bugLight, bugState } from './enemies.js';
 import { inventory, completeQuest, loadProgress, questsDoneCount } from './inventory.js';
-import { addXP }                        from './xp.js';
+import { addXP, xpState }               from './xp.js';
 import { initAudio, setOceanVolume, enterIsland2, exitIsland2 } from './audio.js';
 import { terminalOpen, openTerminal, closeTerminal, setOverlayRef } from './terminal.js';
 import {
@@ -95,6 +95,7 @@ function submitUsername() {
     if (name.length > 16)             { showErr('Name must be 16 characters or less!'); return; }
     if (!/^[a-zA-Z0-9_]+$/.test(name)){ showErr('Letters, numbers and _ only!'); return; }
     playerData.username = name;
+    window._playerUsername = name; // used by supabase.js
     usernameScreen.style.opacity = '0';
     setTimeout(() => { usernameScreen.style.display = 'none'; lockOverlay.style.display = 'flex'; }, 400);
 }
@@ -104,7 +105,7 @@ usernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitUs
 
 document.getElementById('playBtn').addEventListener('click', () => {
     initAudio();
-    loadProgress();
+    loadProgress(); // async — loads from cloud then localStorage fallback
     document.getElementById('welcomeMsg').innerText = `Welcome, ${playerData.username}!`;
     renderer.domElement.requestPointerLock();
 });
@@ -512,6 +513,10 @@ function animate() {
             }
         }
     }
+
+    // sync xp state globally for cloud saves
+    window._xpTotal = xpState.totalXP;
+    window._xpLevel = xpState.level;
 
     // 10. render
     renderer.render(scene, camera);
