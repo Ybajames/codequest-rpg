@@ -71,21 +71,26 @@
         </div>
     </div>
 
-    <!-- ── QUEST TRACKER — bottom right ─────────────────────────────── -->
-    <div id="quests">
+    <!-- ── QUEST BUTTON + PANEL — bottom right ─────────────────────── -->
+    <button id="quest-btn" onclick="toggleQuests()">📋 QUESTS</button>
+    <div id="quests" class="quests-hidden">
         <div id="quests-header">
             <span class="dot"></span>
             <h3>Quests</h3>
+            <button id="quests-close" onclick="toggleQuests()">✕</button>
         </div>
         <div id="quests-body">
             <div class="label">// OBJECTIVES</div>
             <ul id="questList"></ul>
         </div>
     </div>
-
-    <!-- ── CONTROLS — top right ─────────────────────────────────────── -->
-    <div id="controls">
-        <div class="ctrl-label">// Controls</div>
+    <script>
+        function toggleQuests() {
+            const panel = document.getElementById('quests');
+            panel.classList.toggle('quests-hidden');
+            panel.classList.toggle('quests-visible');
+        }
+    </script>
         <div class="ctrl-row"><span class="key">WASD</span> Move</div>
         <div class="ctrl-row"><span class="key">Mouse</span> Look</div>
         <div class="ctrl-row"><span class="key">SPC</span> Jump</div>
@@ -174,6 +179,7 @@
             document.body.appendChild(d);
         });
     </script>
+    <div id="vr-btn-container"></div>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

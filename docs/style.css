@@ -237,16 +237,36 @@ body::after {
     100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
-/* ── QUEST TRACKER — bottom right ───────────────────────────────── */
+/* ── QUEST BUTTON ────────────────────────────────────────────────── */
+#quest-btn {
+    position: fixed; bottom: 20px; right: 20px;
+    font-family: 'Press Start 2P', monospace; font-size: 8px;
+    color: var(--neon-purple); background: rgba(10,5,20,0.92);
+    border: 1px solid rgba(191,95,255,0.5);
+    padding: 10px 16px; cursor: pointer; z-index: 200;
+    box-shadow: 0 0 16px rgba(191,95,255,0.2);
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+#quest-btn:hover {
+    background: rgba(191,95,255,0.15);
+    box-shadow: 0 0 24px rgba(191,95,255,0.4);
+}
+
+/* ── QUEST PANEL — slides up when open ───────────────────────────── */
 #quests {
-    position: absolute; bottom: 20px; right: 20px; width: 260px;
-    background: rgba(10,5,20,0.9);
+    position: fixed; bottom: 70px; right: 20px; width: 280px;
+    background: rgba(10,5,20,0.95);
     border: 1px solid rgba(191,95,255,0.35);
     backdrop-filter: blur(8px);
-    box-shadow: 0 0 20px rgba(191,95,255,0.08), inset 0 0 30px rgba(191,95,255,0.02);
+    box-shadow: 0 0 20px rgba(191,95,255,0.15);
     clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
-    z-index: 100;
+    z-index: 199;
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.22,1,0.36,1);
 }
+.quests-hidden  { opacity: 0; pointer-events: none; transform: translateY(12px); }
+.quests-visible { opacity: 1; pointer-events: all; transform: translateY(0); }
+
 #quests-header {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 14px 8px;
@@ -259,7 +279,9 @@ body::after {
     box-shadow: 0 0 6px var(--neon-purple);
     animation: pulse-dot 3s ease-in-out infinite;
 }
-#quests-header h3 { margin: 0; font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--neon-purple); text-shadow: 0 0 10px var(--neon-purple); }
+#quests-header h3 { margin: 0; flex: 1; font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--neon-purple); text-shadow: 0 0 10px var(--neon-purple); }
+#quests-close { background: none; border: none; color: rgba(191,95,255,0.5); font-size: 14px; cursor: pointer; padding: 0; transition: color 0.2s; }
+#quests-close:hover { color: var(--neon-purple); }
 #quests-body { padding: 10px 14px 14px; }
 #quests-body .label { font-size: 9px; color: rgba(191,95,255,0.45); text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 10px; }
 
@@ -283,19 +305,7 @@ body::after {
     text-shadow: 0 0 4px rgba(57,255,20,0.3) !important;
 }
 
-/* Controls */
-#controls {
-    position: absolute; top: 20px; right: 20px;
-    background: rgba(0,5,15,0.85);
-    border: 1px solid rgba(191,95,255,0.3);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 0 20px rgba(191,95,255,0.08);
-    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-    padding: 10px 14px; z-index: 100;
-}
-#controls .ctrl-label { font-family: 'Press Start 2P', monospace; font-size: 6px; color: var(--neon-purple); text-shadow: 0 0 8px var(--neon-purple); letter-spacing: 0.1em; margin-bottom: 8px; }
-.ctrl-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 10px; color: rgba(191,95,255,0.7); }
-.key { display: inline-flex; align-items: center; justify-content: center; background: rgba(191,95,255,0.1); border: 1px solid rgba(191,95,255,0.4); color: var(--neon-purple); font-family: 'Share Tech Mono', monospace; font-size: 9px; padding: 2px 6px; min-width: 22px; text-shadow: 0 0 6px var(--neon-purple); }
+
 
 /* Lock overlay */
 #lockOverlay {
@@ -654,4 +664,25 @@ body::after {
 @keyframes save-blink {
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.3; }
+}
+
+/* ── VR BUTTON ───────────────────────────────────────────────────── */
+#vr-btn-container {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+}
+#vr-btn-container button {
+    font-family: 'Press Start 2P', monospace; font-size: 9px;
+    color: var(--neon-cyan); background: rgba(0,10,25,0.92);
+    border: 2px solid var(--neon-cyan);
+    padding: 12px 24px; cursor: pointer;
+    text-shadow: 0 0 10px var(--neon-cyan);
+    box-shadow: 0 0 20px rgba(0,245,255,0.2);
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+#vr-btn-container button:hover {
+    background: rgba(0,245,255,0.1);
+    box-shadow: 0 0 30px rgba(0,245,255,0.4);
 }

@@ -9,6 +9,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
+renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // scene

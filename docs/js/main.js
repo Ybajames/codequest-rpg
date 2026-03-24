@@ -1,5 +1,6 @@
 // main.js — entry point, username screen, game loop
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
+import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/webxr/VRButton.js';
 
 import { renderer, scene, camera, MAT, playerData } from './state.js';
 import './world.js';
@@ -10,7 +11,7 @@ import { resolveCollisions, resolveIslandBoundary } from './collision.js';
 import { npcs }                         from './npcs.js';
 import { bugGroup, bugLight, bugState } from './enemies.js';
 import { inventory, completeQuest, loadProgress, questsDoneCount } from './inventory.js';
-import { addXP, xpState }               from './xp.js';
+import { addXP }                        from './xp.js';
 import { initAudio, setOceanVolume, enterIsland2, exitIsland2 } from './audio.js';
 import { terminalOpen, openTerminal, closeTerminal, setOverlayRef } from './terminal.js';
 import {
@@ -83,6 +84,29 @@ lockOverlay.innerHTML = `
 document.body.appendChild(lockOverlay);
 setOverlayRef(lockOverlay);
 
+// ── VR SETUP ──────────────────────────────────────────────────────────────────
+const vrContainer = document.getElementById('vr-btn-container');
+if (navigator.xr) {
+    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+        if (supported) {
+            const vrBtn = VRButton.createButton(renderer);
+            vrContainer.appendChild(vrBtn);
+        } else {
+            vrContainer.innerHTML = '<p style="font-family:monospace;font-size:10px;color:rgba(0,245,255,0.4)">VR not supported on this device</p>';
+        }
+    });
+}
+
+// VR controllers — right trigger = interact (E key equivalent)
+const controller1 = renderer.xr.getController(0);
+const controller2 = renderer.xr.getController(1);
+controller1.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
+controller1.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
+controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
+controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
+scene.add(controller1);
+scene.add(controller2);
+
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
 const usernameScreen = document.getElementById('usernameScreen');
 const usernameInput  = document.getElementById('usernameInput');
@@ -95,7 +119,6 @@ function submitUsername() {
     if (name.length > 16)             { showErr('Name must be 16 characters or less!'); return; }
     if (!/^[a-zA-Z0-9_]+$/.test(name)){ showErr('Letters, numbers and _ only!'); return; }
     playerData.username = name;
-    window._playerUsername = name; // used by supabase.js
     usernameScreen.style.opacity = '0';
     setTimeout(() => { usernameScreen.style.display = 'none'; lockOverlay.style.display = 'flex'; }, 400);
 }
@@ -105,7 +128,7 @@ usernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitUs
 
 document.getElementById('playBtn').addEventListener('click', () => {
     initAudio();
-    loadProgress(); // async — loads from cloud then localStorage fallback
+    loadProgress();
     document.getElementById('welcomeMsg').innerText = `Welcome, ${playerData.username}!`;
     renderer.domElement.requestPointerLock();
 });
@@ -243,7 +266,6 @@ const SUN_ORBIT_RADIUS = 200;
 const SUN_HEIGHT_BASE  = 80;
 
 function animate() {
-    requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
     const t  = clock.elapsedTime;
 
@@ -514,12 +536,8 @@ function animate() {
         }
     }
 
-    // sync xp state globally for cloud saves
-    window._xpTotal = xpState.totalXP;
-    window._xpLevel = xpState.level;
-
     // 10. render
     renderer.render(scene, camera);
 }
 
-animate();
+renderer.setAnimationLoop(animate);
