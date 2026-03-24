@@ -86,16 +86,16 @@ setOverlayRef(lockOverlay);
 
 // ── VR SETUP ──────────────────────────────────────────────────────────────────
 const vrContainer = document.getElementById('vr-btn-container');
-if (navigator.xr) {
-    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-        if (supported) {
-            const vrBtn = VRButton.createButton(renderer);
-            vrContainer.appendChild(vrBtn);
-        } else {
-            vrContainer.innerHTML = '<p style="font-family:monospace;font-size:10px;color:rgba(0,245,255,0.4)">VR not supported on this device</p>';
-        }
-    });
-}
+try {
+    if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+            if (supported) {
+                const vrBtn = VRButton.createButton(renderer);
+                vrContainer.appendChild(vrBtn);
+            }
+        }).catch(() => {}); // silently fail on http
+    }
+} catch(e) {} // silently fail if XR blocked
 
 // VR controllers — right trigger = interact (E key equivalent)
 const controller1 = renderer.xr.getController(0);
@@ -106,6 +106,28 @@ controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true
 controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 scene.add(controller1);
 scene.add(controller2);
+
+// ── VR RIG — moves the camera in VR space ────────────────────────────────────
+// In VR, Three.js takes over the camera. We attach it to a rig group
+// so we can move the player around in VR by moving the rig.
+const vrRig = new THREE.Group();
+vrRig.add(camera);
+scene.add(vrRig);
+vrRig.position.set(0, 0, 0);
+
+// VR thumbstick movement
+const vrMove = { x: 0, z: 0 };
+[controller1, controller2].forEach(ctrl => {
+    ctrl.addEventListener('squeezestart', () => {}); // grip button placeholder
+});
+
+// Read thumbstick axes for movement in VR
+renderer.xr.addEventListener('sessionstart', () => {
+    vrRig.position.copy(playerGroup.position);
+});
+renderer.xr.addEventListener('sessionend', () => {
+    playerGroup.position.copy(vrRig.position);
+});
 
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
 const usernameScreen = document.getElementById('usernameScreen');
@@ -534,6 +556,35 @@ function animate() {
                 }
             }
         }
+    }
+
+    // ── VR MOVEMENT ──────────────────────────────────────────────────────────────
+    if (renderer.xr.isPresenting) {
+        const session = renderer.xr.getSession();
+        if (session) {
+            for (const source of session.inputSources) {
+                if (!source.gamepad) continue;
+                const axes = source.gamepad.axes;
+                if (source.handedness === 'left' && axes.length >= 4) {
+                    const fwd   = new THREE.Vector3(0, 0, -1).applyQuaternion(vrRig.quaternion);
+                    const right = new THREE.Vector3(1, 0,  0).applyQuaternion(vrRig.quaternion);
+                    fwd.y = 0; fwd.normalize();
+                    right.y = 0; right.normalize();
+                    if (Math.abs(axes[3]) > 0.1) vrRig.position.addScaledVector(fwd,  -axes[3] * SPEED * dt);
+                    if (Math.abs(axes[2]) > 0.1) vrRig.position.addScaledVector(right, axes[2] * SPEED * dt);
+                    playerGroup.position.x = vrRig.position.x;
+                    playerGroup.position.z = vrRig.position.z;
+                    const gY = zone === 'island2' ? getI2Height(vrRig.position.x, vrRig.position.z) : 0;
+                    vrRig.position.y = gY;
+                    playerGroup.position.y = gY;
+                }
+                if (source.handedness === 'right' && axes.length >= 4) {
+                    if (Math.abs(axes[2]) > 0.15) vrRig.rotation.y -= axes[2] * 0.03;
+                }
+            }
+        }
+        resolveCollisions(vrRig);
+        if (zone === 'island') resolveIslandBoundary(vrRig);
     }
 
     // 10. render
