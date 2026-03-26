@@ -1,8 +1,10 @@
-// main.js — entry point, username screen, game loop
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
-import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/webxr/VRButton.js';
-
-import { renderer, scene, camera, MAT, playerData } from './state.js';
+/* ---main.js — entry point, username screen, game loop, Make sure Before Running you npm install three*/
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import { VRButton } from 'https://unpkg.com/three@0.160.0/examples/jsm/webxr/VRButton.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+//import { OBJLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/OBJLoader.js';
+import { renderer, scene, camera, MAT, playerData, box, addTo } from './state.js';
+//import {OBJLoader} from 'three/examples/jsm/loaders/OBJLoader';
 import './world.js';
 import { sunSphere, clouds, birds }    from './environment.js';
 import { sunLight, hemiLight as hemi } from './world.js';
@@ -23,6 +25,83 @@ import {
     bossState, bossGroup, bossRing, shards, spawnBoss, defeatBoss,
     bossLightRed, bossLightPurp, BOSS_X_POS, BOSS_Z_POS,
 } from './boss.js';
+
+//--Server Connection---------------------
+const Players = [];
+//Storing player mdoels and pos
+const otherPlayers = {};
+const socket = io("http://localhost:5174");
+socket.on('code',function(data){
+    var plCode = data.code;
+    console.log("received Code:", data.code);
+})
+    
+
+socket.on("ServerResponse", function(data) {
+    console.log("Received server response:", data.response);
+});
+   
+socket.on("disconnect", function() {
+    console.log("Server Disconnected");
+});
+
+
+function sendPlayerInfo(playerGroup)
+{
+    if(playerData.username == "Player") return;
+    try{
+        socket.emit("clientData", {
+            Username: playerData.username,
+            x: playerGroup.position.x,
+            y: playerGroup.position.y,
+            z: playerGroup.position.z,
+            yaw_y: playerGroup.rotation.y,
+        });
+    }
+    catch{
+        console.log("Player Info Not sent")
+    }
+};
+
+socket.on("playerLeft", function(username){
+    const index = Players.findIndex(p => p.Username === username);
+    if (index !== -1) Players.splice(index,1);
+
+    if (otherPlayers[username])
+    {
+        scene.remove(otherPlayers[username]);
+        delete otherPlayers[username];
+    }
+    console.log(username + " left the world");
+})
+
+socket.on("Players", function(playerList) {
+    for (let i = 0; i < playerList.length; i++)
+    {
+        let playerConnected = false
+        for(let x = 0; x < Players.length; x++)
+        {
+        if(playerList[i].Username == Players[x].Username){
+            Players[x].y = playerList[i].y;
+            Players[x].x = playerList[i].x;
+            Players[x].z = playerList[i].z;
+            Players[x].yaw_y = playerList[i].yaw_y
+            playerConnected = true;
+            break;
+                
+        }
+        }
+        if (!playerConnected) Players.push(playerList[i])
+    
+    }
+    console.log("Player List" , Players)
+    console.log("PLayers Sent: ", playerList)
+    
+})
+
+window.addEventListener('beforeunload', function() {
+    socket.disconnect();
+});
 
 // ── ZONE STATE ────────────────────────────────────────────────────────────────
 let zone = 'island'; // 'island' | 'island2'
@@ -111,7 +190,16 @@ scene.add(controller2);
 // In VR, Three.js takes over the camera. We attach it to a rig group
 // so we can move the player around in VR by moving the rig.
 const vrRig = new THREE.Group();
-vrRig.add(camera);
+//Changed these lines to ensure the camera stayes attached to the player
+renderer.xr.addEventListener('sessionstart', () => {
+    vrRig.add(camera); // move camera into VR rig
+    vrRig.position.copy(playerGroup.position);
+});
+
+renderer.xr.addEventListener('sessionend', () => {
+    cameraPivot.add(camera); // move camera back to player
+    playerGroup.position.copy(vrRig.position);
+});
 scene.add(vrRig);
 vrRig.position.set(0, 0, 0);
 
@@ -128,7 +216,70 @@ renderer.xr.addEventListener('sessionstart', () => {
 renderer.xr.addEventListener('sessionend', () => {
     playerGroup.position.copy(vrRig.position);
 });
+// -----Creating new Player Models ----------------------------------------------
+function createOtherPlayer(username){
+     const otherPlayerGroup = new THREE.Group();
 
+    // Same structure as player.js
+    const body = box(0.8, 1.0, 0.4, MAT.playerBody);
+    addTo(otherPlayerGroup, body, 0, 1.5, 0);
+
+    const head = box(0.8, 0.8, 0.8, MAT.playerHead);
+    addTo(otherPlayerGroup, head, 0, 2.4, 0);
+    addTo(head, box(0.15, 0.12, 0.05, MAT.playerEye), -0.2, 0.05, 0.42);
+    addTo(head, box(0.15, 0.12, 0.05, MAT.playerEye),  0.2, 0.05, 0.42);
+
+    addTo(otherPlayerGroup, box(0.3, 0.9, 0.3, MAT.playerArm), -0.55, 1.55, 0);
+    addTo(otherPlayerGroup, box(0.3, 0.9, 0.3, MAT.playerArm),  0.55, 1.55, 0);
+    addTo(otherPlayerGroup, box(0.35, 0.9, 0.35, MAT.playerLeg), -0.22, 0.55, 0);
+    addTo(otherPlayerGroup, box(0.35, 0.9, 0.35, MAT.playerLeg),  0.22, 0.55, 0);
+    addTo(otherPlayerGroup, box(0.38, 0.2, 0.42, MAT.playerShoe), -0.22, 0.1, 0.04);
+    addTo(otherPlayerGroup, box(0.38, 0.2, 0.42, MAT.playerShoe),  0.22, 0.1, 0.04);
+
+    //NAMe tag above head
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 48;
+    const ctx = canvas.getContext('2d');
+    ctx.font = 'bold 22px monospace';
+    ctx.fillstyle = '#00f5ff';
+    ctx.textAlign = 'center';
+    ctx.fillText(username, 128, 32);
+    const nameTag = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.2,0.42),
+        new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(canvas), transparent:true})
+    )
+    nameTag.position.y = 3.2;
+    otherPlayerGroup.add(nameTag);
+    otherPlayerGroup.userData.nameTag = nameTag;
+    otherPlayerGroup.name = username;
+
+    scene.add(otherPlayerGroup);
+    return otherPlayerGroup;
+
+}
+
+function drawOtherPlayers(playerList){
+    playerList.forEach(p => {
+        //skip if the player is yourself
+        if (p.Username === playerData.username) return;
+
+        //create model if its new
+        if (!otherPlayers[p.Username]){
+            otherPlayers[p.Username] = createOtherPlayer(p.Username);
+        }
+        //Updating postion
+        const model = otherPlayers[p.Username];
+
+        model.position.set(p.x, p.y, p.z);
+        model.rotation.y = p.yaw_y + Math.PI;
+
+        //face name tag towards camera
+        if (model.userData.nameTag){
+            model.userData.nameTag.lookAt(camera.position);
+        }
+    });
+}
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
 const usernameScreen = document.getElementById('usernameScreen');
 const usernameInput  = document.getElementById('usernameInput');
@@ -297,13 +448,23 @@ function animate() {
         const forward = new THREE.Vector3(-Math.sin(controls.yaw), 0, -Math.cos(controls.yaw));
         const right   = new THREE.Vector3( Math.cos(controls.yaw), 0, -Math.sin(controls.yaw));
 
+    if (!renderer.xr.isPresenting) {
+        // Normal mode → move player
+    
         if (controls.keys['KeyW'] || controls.keys['ArrowUp'])    dir.add(forward);
         if (controls.keys['KeyS'] || controls.keys['ArrowDown'])  dir.sub(forward);
         if (controls.keys['KeyD'] || controls.keys['ArrowRight']) dir.add(right);
         if (controls.keys['KeyA'] || controls.keys['ArrowLeft'])  dir.sub(right);
-
+    }
         if (dir.lengthSq() > 0) dir.normalize();
         playerGroup.position.addScaledVector(dir, SPEED * dt);
+
+        if (!renderer.xr.isPresenting) {
+            playerGroup.rotation.y = controls.yaw;
+            cameraPivot.rotation.x = controls.pitch;
+        }
+
+        
 
         // gravity
         controls.velocityY += GRAVITY * dt;
@@ -557,7 +718,7 @@ function animate() {
             }
         }
     }
-
+    
     // ── VR MOVEMENT ──────────────────────────────────────────────────────────────
     if (renderer.xr.isPresenting) {
         const session = renderer.xr.getSession();
@@ -586,8 +747,10 @@ function animate() {
         resolveCollisions(vrRig);
         if (zone === 'island') resolveIslandBoundary(vrRig);
     }
-
     // 10. render
+    
+    sendPlayerInfo(playerGroup);
+    drawOtherPlayers(Players);
     renderer.render(scene, camera);
 }
 

@@ -60,3 +60,5 @@ document.addEventListener('mousemove', e => {
     controls.pitch -= e.movementY * 0.002;
     controls.pitch  = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, controls.pitch));
 });
+
+

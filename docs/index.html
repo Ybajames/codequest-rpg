@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <title>CodeQuest RPG 3D</title>
     <link rel="stylesheet" href="style.css">
+    <script type = "importmap">
+         {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/"
+        }
+    }
+    </script>
+    <script src = "https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
 
@@ -84,6 +93,7 @@
             <ul id="questList"></ul>
         </div>
     </div>
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
     <script>
         function toggleQuests() {
             const panel = document.getElementById('quests');
