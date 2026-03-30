@@ -116,63 +116,10 @@ const vrRig = new THREE.Group();
 scene.add(vrRig);
 
 // ── VR HANDS — simple blocky controller meshes ────────────────────────────────
-const handMat  = new THREE.MeshLambertMaterial({ color: 0xffcc99 }); // skin
-const gloveMat = new THREE.MeshLambertMaterial({ color: 0x1565c0 }); // glove blue
-
-function makeVRHand(isRight) {
-    const g = new THREE.Group();
-    // rotate entire hand group to match Quest controller grip
-    // controllers point forward+down at ~45deg, hand faces palm-down naturally
-    g.rotation.x = -0.4;  // tilt back so palm faces slightly down (natural hold)
-    g.rotation.z = isRight ? -0.1 : 0.1; // slight inward angle
-
-    // palm
-    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, 0.10), handMat);
-    palm.position.set(0, 0, 0.02);
-    g.add(palm);
-    // fingers
-    for (let i = 0; i < 4; i++) {
-        const f = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.014, 0.048), handMat);
-        f.position.set(-0.022 + i * 0.016, 0.005, 0.075);
-        g.add(f);
-    }
-    // thumb
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.036), handMat);
-    t.position.set(isRight ? -0.046 : 0.046, 0.008, 0.028);
-    t.rotation.z = isRight ? 0.5 : -0.5;
-    g.add(t);
-    // wrist/cuff
-    const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.055, 0.06), gloveMat);
-    cuff.position.set(0, 0, -0.04);
-    g.add(cuff);
-    return g;
-}
-
-const vrHandL = makeVRHand(false);
-const vrHandR = makeVRHand(true);
-controller1.add(vrHandR); // right controller
-controller2.add(vrHandL); // left controller
+// VR hands removed // left controller
 
 // ── VR BODY — visible chest when looking down ─────────────────────────────────
-// VR body — attached to camera so it's always below your view, never at feet
-const vrBody = new THREE.Group();
-// chest visible when looking down — sits 0.4m below camera, slightly forward
-const vrChest = new THREE.Mesh(
-    new THREE.BoxGeometry(0.38, 0.28, 0.18),
-    new THREE.MeshLambertMaterial({ color: 0x1565c0 })
-);
-vrChest.position.set(0, -0.42, -0.08);
-vrBody.add(vrChest);
-// belt stripe
-const vrBelt = new THREE.Mesh(
-    new THREE.BoxGeometry(0.40, 0.06, 0.20),
-    new THREE.MeshLambertMaterial({ color: 0x0d47a1 })
-);
-vrBelt.position.set(0, -0.56, -0.08);
-vrBody.add(vrBelt);
-vrBody.visible = false;
-// attach to camera — moves with head automatically
-camera.add(vrBody);
+// VR body removed
 
 // perspective state
 let vrPerspective = 'first'; // 'first' | 'third'
@@ -185,9 +132,6 @@ renderer.xr.addEventListener('sessionstart', () => {
     vrRig.position.y = 0; // Quest handles head height via tracking
     // hide flat-mode player body in first person
     playerGroup.visible = false;
-    vrBody.visible = true;
-    vrHandL.visible = true;
-    vrHandR.visible = true;
 });
 
 renderer.xr.addEventListener('sessionend', () => {
@@ -196,7 +140,6 @@ renderer.xr.addEventListener('sessionend', () => {
     cameraPivot.add(camera);
     camera.position.set(0, 0, 0);
     playerGroup.visible = true;
-    vrBody.visible = false;
 });
 
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
@@ -674,8 +617,7 @@ function animate() {
             camera.lookAt(vrRig.position.x, vrRig.position.y + 1.2, vrRig.position.z);
             playerGroup.visible = true;
         } else {
-            // first person — vrBody is attached to camera, updates automatically
-        }
+            }
     }
 
     // 10. render
