@@ -103,10 +103,6 @@ const controller2 = renderer.xr.getController(1);
 controller1.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
 controller1.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
-// right grip = toggle perspective
-controller1.addEventListener('squeezestart', () => {
-    vrPerspective = vrPerspective === 'first' ? 'third' : 'first';
-});
 controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 scene.add(controller1);
 scene.add(controller2);
@@ -122,7 +118,6 @@ scene.add(vrRig);
 // VR body removed
 
 // perspective state
-let vrPerspective = 'first'; // 'first' | 'third'
 
 renderer.xr.addEventListener('sessionstart', () => {
     // move camera from cameraPivot to vrRig
@@ -130,8 +125,10 @@ renderer.xr.addEventListener('sessionstart', () => {
     vrRig.add(camera);
     vrRig.position.copy(playerGroup.position);
     vrRig.position.y = 0; // Quest handles head height via tracking
-    // hide flat-mode player body in first person
+    // hide everything — pure first person, nothing visible
     playerGroup.visible = false;
+    controller1.visible = false;
+    controller2.visible = false;
 });
 
 renderer.xr.addEventListener('sessionend', () => {
@@ -140,6 +137,8 @@ renderer.xr.addEventListener('sessionend', () => {
     cameraPivot.add(camera);
     camera.position.set(0, 0, 0);
     playerGroup.visible = true;
+    controller1.visible = true;
+    controller2.visible = true;
 });
 
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
@@ -182,9 +181,6 @@ document.addEventListener('keydown', e => {
     if (e.code === 'Space' && controls.onGround) { controls.velocityY = JUMP_V; controls.onGround = false; }
     // dev shortcuts
     if (e.shiftKey && e.code === 'KeyM') goToIsland2();
-    if (e.code === 'KeyP') {
-        vrPerspective = vrPerspective === 'first' ? 'third' : 'first';
-    }
     if (e.shiftKey && e.code === 'KeyI') goToIsland1();
 });
 document.addEventListener('keyup', e => { if (terminalOpen) return; controls.keys[e.code] = false; });
@@ -611,13 +607,6 @@ function animate() {
         resolveCollisions(vrRig);
         if (zone === 'island') resolveIslandBoundary(vrRig);
 
-        // 3rd person camera in VR — pull back behind player
-        if (vrPerspective === 'third') {
-            camera.position.set(0, 1.4, 3.5);
-            camera.lookAt(vrRig.position.x, vrRig.position.y + 1.2, vrRig.position.z);
-            playerGroup.visible = true;
-        } else {
-            }
     }
 
     // 10. render
