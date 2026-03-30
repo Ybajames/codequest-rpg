@@ -121,23 +121,29 @@ const gloveMat = new THREE.MeshLambertMaterial({ color: 0x1565c0 }); // glove bl
 
 function makeVRHand(isRight) {
     const g = new THREE.Group();
+    // rotate entire hand group to match Quest controller grip
+    // controllers point forward+down at ~45deg, hand faces palm-down naturally
+    g.rotation.x = -0.4;  // tilt back so palm faces slightly down (natural hold)
+    g.rotation.z = isRight ? -0.1 : 0.1; // slight inward angle
+
     // palm
-    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 0.12), handMat);
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, 0.10), handMat);
+    palm.position.set(0, 0, 0.02);
     g.add(palm);
     // fingers
     for (let i = 0; i < 4; i++) {
-        const f = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.016, 0.05), handMat);
-        f.position.set(-0.026 + i * 0.018, 0, 0.085);
+        const f = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.014, 0.048), handMat);
+        f.position.set(-0.022 + i * 0.016, 0.005, 0.075);
         g.add(f);
     }
     // thumb
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.04), handMat);
-    t.position.set(isRight ? -0.05 : 0.05, 0, 0.02);
-    t.rotation.z = isRight ? 0.4 : -0.4;
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.036), handMat);
+    t.position.set(isRight ? -0.046 : 0.046, 0.008, 0.028);
+    t.rotation.z = isRight ? 0.5 : -0.5;
     g.add(t);
-    // cuff
-    const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.07), gloveMat);
-    cuff.position.z = -0.05;
+    // wrist/cuff
+    const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.055, 0.06), gloveMat);
+    cuff.position.set(0, 0, -0.04);
     g.add(cuff);
     return g;
 }
@@ -148,20 +154,25 @@ controller1.add(vrHandR); // right controller
 controller2.add(vrHandL); // left controller
 
 // ── VR BODY — visible chest when looking down ─────────────────────────────────
+// VR body — attached to camera so it's always below your view, never at feet
 const vrBody = new THREE.Group();
-const vrChest = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.2),
-    new THREE.MeshLambertMaterial({ color: 0x1565c0 }));
-vrChest.position.set(0, -0.25, -0.1);
+// chest visible when looking down — sits 0.4m below camera, slightly forward
+const vrChest = new THREE.Mesh(
+    new THREE.BoxGeometry(0.38, 0.28, 0.18),
+    new THREE.MeshLambertMaterial({ color: 0x1565c0 })
+);
+vrChest.position.set(0, -0.42, -0.08);
 vrBody.add(vrChest);
-// arms hanging from body
-[-0.22, 0.22].forEach(ox => {
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.28, 0.1),
-        new THREE.MeshLambertMaterial({ color: 0x1565c0 }));
-    arm.position.set(ox, -0.4, -0.08);
-    vrBody.add(arm);
-});
-vrBody.visible = false; // shown only in VR
-scene.add(vrBody);
+// belt stripe
+const vrBelt = new THREE.Mesh(
+    new THREE.BoxGeometry(0.40, 0.06, 0.20),
+    new THREE.MeshLambertMaterial({ color: 0x0d47a1 })
+);
+vrBelt.position.set(0, -0.56, -0.08);
+vrBody.add(vrBelt);
+vrBody.visible = false;
+// attach to camera — moves with head automatically
+camera.add(vrBody);
 
 // perspective state
 let vrPerspective = 'first'; // 'first' | 'third'
@@ -644,13 +655,12 @@ function animate() {
                     // sync playerGroup for collisions + interactions
                     playerGroup.position.set(vrRig.position.x, gY, vrRig.position.z);
                 }
-                // right thumbstick — snap turn (45° steps)
+                // right thumbstick — smooth turn, gentle speed
                 if (source.handedness === 'right' && axes.length >= 4) {
-                    if (Math.abs(axes[2]) > 0.7 && !vrRig.userData.turning) {
-                        vrRig.rotation.y -= Math.sign(axes[2]) * Math.PI / 4;
-                        vrRig.userData.turning = true;
-                    } else if (Math.abs(axes[2]) < 0.3) {
-                        vrRig.userData.turning = false;
+                    const deadzone = 0.15;
+                    if (Math.abs(axes[2]) > deadzone) {
+                        // smooth but controlled — 1.2 rad/sec max
+                        vrRig.rotation.y -= axes[2] * 1.2 * dt;
                     }
                 }
             }
@@ -664,9 +674,7 @@ function animate() {
             camera.lookAt(vrRig.position.x, vrRig.position.y + 1.2, vrRig.position.z);
             playerGroup.visible = true;
         } else {
-            // first person — camera at head, body visible looking down
-            vrBody.position.copy(vrRig.position);
-            vrBody.rotation.y = vrRig.rotation.y;
+            // first person — vrBody is attached to camera, updates automatically
         }
     }
 
