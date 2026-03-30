@@ -103,30 +103,89 @@ const controller2 = renderer.xr.getController(1);
 controller1.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
 controller1.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
+// right grip = toggle perspective
+controller1.addEventListener('squeezestart', () => {
+    vrPerspective = vrPerspective === 'first' ? 'third' : 'first';
+});
 controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 scene.add(controller1);
 scene.add(controller2);
 
-// ── VR RIG — moves the camera in VR space ────────────────────────────────────
-// In VR, Three.js takes over the camera. We attach it to a rig group
-// so we can move the player around in VR by moving the rig.
+// ── VR RIG ───────────────────────────────────────────────────────────────────
 const vrRig = new THREE.Group();
-vrRig.add(camera);
 scene.add(vrRig);
-vrRig.position.set(0, 0, 0);
 
-// VR thumbstick movement
-const vrMove = { x: 0, z: 0 };
-[controller1, controller2].forEach(ctrl => {
-    ctrl.addEventListener('squeezestart', () => {}); // grip button placeholder
+// ── VR HANDS — simple blocky controller meshes ────────────────────────────────
+const handMat  = new THREE.MeshLambertMaterial({ color: 0xffcc99 }); // skin
+const gloveMat = new THREE.MeshLambertMaterial({ color: 0x1565c0 }); // glove blue
+
+function makeVRHand(isRight) {
+    const g = new THREE.Group();
+    // palm
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 0.12), handMat);
+    g.add(palm);
+    // fingers
+    for (let i = 0; i < 4; i++) {
+        const f = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.016, 0.05), handMat);
+        f.position.set(-0.026 + i * 0.018, 0, 0.085);
+        g.add(f);
+    }
+    // thumb
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.04), handMat);
+    t.position.set(isRight ? -0.05 : 0.05, 0, 0.02);
+    t.rotation.z = isRight ? 0.4 : -0.4;
+    g.add(t);
+    // cuff
+    const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.07), gloveMat);
+    cuff.position.z = -0.05;
+    g.add(cuff);
+    return g;
+}
+
+const vrHandL = makeVRHand(false);
+const vrHandR = makeVRHand(true);
+controller1.add(vrHandR); // right controller
+controller2.add(vrHandL); // left controller
+
+// ── VR BODY — visible chest when looking down ─────────────────────────────────
+const vrBody = new THREE.Group();
+const vrChest = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.2),
+    new THREE.MeshLambertMaterial({ color: 0x1565c0 }));
+vrChest.position.set(0, -0.25, -0.1);
+vrBody.add(vrChest);
+// arms hanging from body
+[-0.22, 0.22].forEach(ox => {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.28, 0.1),
+        new THREE.MeshLambertMaterial({ color: 0x1565c0 }));
+    arm.position.set(ox, -0.4, -0.08);
+    vrBody.add(arm);
 });
+vrBody.visible = false; // shown only in VR
+scene.add(vrBody);
 
-// Read thumbstick axes for movement in VR
+// perspective state
+let vrPerspective = 'first'; // 'first' | 'third'
+
 renderer.xr.addEventListener('sessionstart', () => {
+    // move camera from cameraPivot to vrRig
+    cameraPivot.remove(camera);
+    vrRig.add(camera);
     vrRig.position.copy(playerGroup.position);
+    vrRig.position.y = 0; // Quest handles head height via tracking
+    // hide flat-mode player body in first person
+    playerGroup.visible = false;
+    vrBody.visible = true;
+    vrHandL.visible = true;
+    vrHandR.visible = true;
 });
+
 renderer.xr.addEventListener('sessionend', () => {
-    playerGroup.position.copy(vrRig.position);
+    // restore camera to cameraPivot
+    vrRig.remove(camera);
+    cameraPivot.add(camera);
+    camera.position.set(0, 0, 0);
+    playerGroup.visible = true;
+    vrBody.visible = false;
 });
 
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
@@ -169,6 +228,9 @@ document.addEventListener('keydown', e => {
     if (e.code === 'Space' && controls.onGround) { controls.velocityY = JUMP_V; controls.onGround = false; }
     // dev shortcuts
     if (e.shiftKey && e.code === 'KeyM') goToIsland2();
+    if (e.code === 'KeyP') {
+        vrPerspective = vrPerspective === 'first' ? 'third' : 'first';
+    }
     if (e.shiftKey && e.code === 'KeyI') goToIsland1();
 });
 document.addEventListener('keyup', e => { if (terminalOpen) return; controls.keys[e.code] = false; });
@@ -565,26 +627,47 @@ function animate() {
             for (const source of session.inputSources) {
                 if (!source.gamepad) continue;
                 const axes = source.gamepad.axes;
+                // left thumbstick — move
                 if (source.handedness === 'left' && axes.length >= 4) {
-                    const fwd   = new THREE.Vector3(0, 0, -1).applyQuaternion(vrRig.quaternion);
-                    const right = new THREE.Vector3(1, 0,  0).applyQuaternion(vrRig.quaternion);
-                    fwd.y = 0; fwd.normalize();
-                    right.y = 0; right.normalize();
-                    if (Math.abs(axes[3]) > 0.1) vrRig.position.addScaledVector(fwd,  -axes[3] * SPEED * dt);
-                    if (Math.abs(axes[2]) > 0.1) vrRig.position.addScaledVector(right, axes[2] * SPEED * dt);
-                    playerGroup.position.x = vrRig.position.x;
-                    playerGroup.position.z = vrRig.position.z;
+                    // get camera facing direction (headset look direction, flat on XZ)
+                    const camDir = new THREE.Vector3(0, 0, -1);
+                    camDir.applyQuaternion(camera.quaternion);
+                    camDir.y = 0; camDir.normalize();
+                    const camRight = new THREE.Vector3(1, 0, 0);
+                    camRight.applyQuaternion(camera.quaternion);
+                    camRight.y = 0; camRight.normalize();
+                    if (Math.abs(axes[3]) > 0.12) vrRig.position.addScaledVector(camDir,  -axes[3] * SPEED * dt);
+                    if (Math.abs(axes[2]) > 0.12) vrRig.position.addScaledVector(camRight, axes[2] * SPEED * dt);
+                    // ground snap
                     const gY = zone === 'island2' ? getI2Height(vrRig.position.x, vrRig.position.z) : 0;
                     vrRig.position.y = gY;
-                    playerGroup.position.y = gY;
+                    // sync playerGroup for collisions + interactions
+                    playerGroup.position.set(vrRig.position.x, gY, vrRig.position.z);
                 }
+                // right thumbstick — snap turn (45° steps)
                 if (source.handedness === 'right' && axes.length >= 4) {
-                    if (Math.abs(axes[2]) > 0.15) vrRig.rotation.y -= axes[2] * 0.03;
+                    if (Math.abs(axes[2]) > 0.7 && !vrRig.userData.turning) {
+                        vrRig.rotation.y -= Math.sign(axes[2]) * Math.PI / 4;
+                        vrRig.userData.turning = true;
+                    } else if (Math.abs(axes[2]) < 0.3) {
+                        vrRig.userData.turning = false;
+                    }
                 }
             }
         }
         resolveCollisions(vrRig);
         if (zone === 'island') resolveIslandBoundary(vrRig);
+
+        // 3rd person camera in VR — pull back behind player
+        if (vrPerspective === 'third') {
+            camera.position.set(0, 1.4, 3.5);
+            camera.lookAt(vrRig.position.x, vrRig.position.y + 1.2, vrRig.position.z);
+            playerGroup.visible = true;
+        } else {
+            // first person — camera at head, body visible looking down
+            vrBody.position.copy(vrRig.position);
+            vrBody.rotation.y = vrRig.rotation.y;
+        }
     }
 
     // 10. render
