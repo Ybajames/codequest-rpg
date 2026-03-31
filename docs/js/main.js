@@ -104,29 +104,31 @@ controller1.addEventListener('selectstart', () => { controls.keys['KeyE'] = true
 controller1.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
 controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
-scene.add(controller1);
-scene.add(controller2);
+// controllers not added to scene — prevents Quest rendering its own controller models
 
-// ── VR RIG — moves the camera in VR space ────────────────────────────────────
-// In VR, Three.js takes over the camera. We attach it to a rig group
-// so we can move the player around in VR by moving the rig.
+// ── VR RIG ───────────────────────────────────────────────────────────────────
 const vrRig = new THREE.Group();
-vrRig.add(camera);
 scene.add(vrRig);
-vrRig.position.set(0, 0, 0);
 
-// VR thumbstick movement
-const vrMove = { x: 0, z: 0 };
-[controller1, controller2].forEach(ctrl => {
-    ctrl.addEventListener('squeezestart', () => {}); // grip button placeholder
-});
-
-// Read thumbstick axes for movement in VR
 renderer.xr.addEventListener('sessionstart', () => {
+    // reparent camera from cameraPivot to vrRig
+    cameraPivot.remove(camera);
+    vrRig.add(camera);
     vrRig.position.copy(playerGroup.position);
+    vrRig.position.y = 0;
+    // hide player completely — move underground so no mesh clips into view
+    playerGroup.visible = false;
+    playerGroup.position.y = -999;
 });
+
 renderer.xr.addEventListener('sessionend', () => {
-    playerGroup.position.copy(vrRig.position);
+    // restore camera
+    vrRig.remove(camera);
+    cameraPivot.add(camera);
+    camera.position.set(0, 0, 0);
+    // restore player at rig position
+    playerGroup.position.set(vrRig.position.x, vrRig.position.y, vrRig.position.z);
+    playerGroup.visible = true;
 });
 
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
@@ -623,21 +625,24 @@ function animate() {
             for (const source of session.inputSources) {
                 if (!source.gamepad) continue;
                 const axes = source.gamepad.axes;
+                // left thumbstick — move relative to headset direction
                 if (source.handedness === 'left' && axes.length >= 4) {
-                    const fwd   = new THREE.Vector3(0, 0, -1).applyQuaternion(vrRig.quaternion);
-                    const right = new THREE.Vector3(1, 0,  0).applyQuaternion(vrRig.quaternion);
-                    fwd.y = 0; fwd.normalize();
-                    right.y = 0; right.normalize();
-                    if (Math.abs(axes[3]) > 0.1) vrRig.position.addScaledVector(fwd,  -axes[3] * SPEED * dt);
-                    if (Math.abs(axes[2]) > 0.1) vrRig.position.addScaledVector(right, axes[2] * SPEED * dt);
-                    playerGroup.position.x = vrRig.position.x;
-                    playerGroup.position.z = vrRig.position.z;
+                    const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                    camDir.y = 0; camDir.normalize();
+                    const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                    camRight.y = 0; camRight.normalize();
+                    if (Math.abs(axes[3]) > 0.12) vrRig.position.addScaledVector(camDir,  -axes[3] * SPEED * dt);
+                    if (Math.abs(axes[2]) > 0.12) vrRig.position.addScaledVector(camRight, axes[2] * SPEED * dt);
                     const gY = zone === 'island2' ? getI2Height(vrRig.position.x, vrRig.position.z) : 0;
                     vrRig.position.y = gY;
-                    playerGroup.position.y = gY;
+                    // sync x/z only for collisions — keep player underground
+                    playerGroup.position.x = vrRig.position.x;
+                    playerGroup.position.z = vrRig.position.z;
+                    playerGroup.position.y = -999;
                 }
+                // right thumbstick — smooth turn
                 if (source.handedness === 'right' && axes.length >= 4) {
-                    if (Math.abs(axes[2]) > 0.15) vrRig.rotation.y -= axes[2] * 0.03;
+                    if (Math.abs(axes[2]) > 0.12) vrRig.rotation.y -= axes[2] * 1.2 * dt;
                 }
             }
         }
