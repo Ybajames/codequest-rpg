@@ -98,14 +98,15 @@ try {
 } catch(e) {} // silently fail if XR blocked
 
 // VR controllers — right trigger = interact (E key equivalent)
+// VR controllers — input only, no visible model
 const controller1 = renderer.xr.getController(0);
 const controller2 = renderer.xr.getController(1);
 controller1.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
 controller1.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
 controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
-scene.add(controller1);
-scene.add(controller2);
+// DON'T add controllers to scene — prevents Quest rendering its controller models
+// They still work for input tracking
 
 // ── VR RIG ───────────────────────────────────────────────────────────────────
 const vrRig = new THREE.Group();
@@ -124,11 +125,10 @@ renderer.xr.addEventListener('sessionstart', () => {
     cameraPivot.remove(camera);
     vrRig.add(camera);
     vrRig.position.copy(playerGroup.position);
-    vrRig.position.y = 0; // Quest handles head height via tracking
-    // hide everything — pure first person, nothing visible
+    vrRig.position.y = 0;
+    // hide player completely — move underground so head mesh can't clip into view
     playerGroup.visible = false;
-    controller1.visible = false;
-    controller2.visible = false;
+    playerGroup.position.y = -999;
 });
 
 renderer.xr.addEventListener('sessionend', () => {
@@ -136,9 +136,9 @@ renderer.xr.addEventListener('sessionend', () => {
     vrRig.remove(camera);
     cameraPivot.add(camera);
     camera.position.set(0, 0, 0);
+    // restore player at vrRig position
+    playerGroup.position.set(vrRig.position.x, vrRig.position.y, vrRig.position.z);
     playerGroup.visible = true;
-    controller1.visible = true;
-    controller2.visible = true;
 });
 
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
@@ -592,7 +592,10 @@ function animate() {
                     const gY = zone === 'island2' ? getI2Height(vrRig.position.x, vrRig.position.z) : 0;
                     vrRig.position.y = gY;
                     // sync playerGroup for collisions + interactions
-                    playerGroup.position.set(vrRig.position.x, gY, vrRig.position.z);
+                    // sync x/z for collision detection, keep underground so mesh never clips view
+                    playerGroup.position.x = vrRig.position.x;
+                    playerGroup.position.z = vrRig.position.z;
+                    playerGroup.position.y = -999;
                 }
                 // right thumbstick — smooth turn, gentle speed
                 if (source.handedness === 'right' && axes.length >= 4) {
