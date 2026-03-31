@@ -69,6 +69,19 @@ sunSphere.add(new THREE.Mesh(
 ));
 scene.add(sunSphere);
 
+// ── MOON SPHERE ───────────────────────────────────────────────────────────────
+export const moonSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(5, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xddeeff })
+);
+// soft pale glow around moon
+moonSphere.add(new THREE.Mesh(
+    new THREE.SphereGeometry(7, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xaaccff, transparent: true, opacity: 0.15 })
+));
+moonSphere.visible = false;
+scene.add(moonSphere);
+
 // ── CLOUDS ────────────────────────────────────────────────────────────────────
 // Each cloud = several white boxes overlapping — Minecraft-style fluffy
 function makeCloud(x, y, z) {

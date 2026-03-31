@@ -4,7 +4,7 @@ import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/
 
 import { renderer, scene, camera, MAT, playerData } from './state.js';
 import './world.js';
-import { sunSphere, clouds, birds }    from './environment.js';
+import { sunSphere, moonSphere, clouds, birds } from './environment.js';
 import { sunLight, hemiLight as hemi } from './world.js';
 import { playerGroup, cameraPivot, pArmL, pArmR, pLegL, pLegR, controls, GRAVITY, JUMP_V, SPEED } from './player.js';
 import { resolveCollisions, resolveIslandBoundary } from './collision.js';
@@ -98,47 +98,35 @@ try {
 } catch(e) {} // silently fail if XR blocked
 
 // VR controllers — right trigger = interact (E key equivalent)
-// VR controllers — input only, no visible model
 const controller1 = renderer.xr.getController(0);
 const controller2 = renderer.xr.getController(1);
 controller1.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
 controller1.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
 controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
-// DON'T add controllers to scene — prevents Quest rendering its controller models
-// They still work for input tracking
+scene.add(controller1);
+scene.add(controller2);
 
-// ── VR RIG ───────────────────────────────────────────────────────────────────
+// ── VR RIG — moves the camera in VR space ────────────────────────────────────
+// In VR, Three.js takes over the camera. We attach it to a rig group
+// so we can move the player around in VR by moving the rig.
 const vrRig = new THREE.Group();
+vrRig.add(camera);
 scene.add(vrRig);
+vrRig.position.set(0, 0, 0);
 
-// ── VR HANDS — simple blocky controller meshes ────────────────────────────────
-// VR hands removed // left controller
-
-// ── VR BODY — visible chest when looking down ─────────────────────────────────
-// VR body removed
-
-// perspective state
-
-renderer.xr.addEventListener('sessionstart', () => {
-    // move camera from cameraPivot to vrRig
-    cameraPivot.remove(camera);
-    vrRig.add(camera);
-    vrRig.position.copy(playerGroup.position);
-    vrRig.position.y = 0;
-    // hide player completely — move underground so head mesh can't clip into view
-    playerGroup.visible = false;
-    playerGroup.position.y = -999;
+// VR thumbstick movement
+const vrMove = { x: 0, z: 0 };
+[controller1, controller2].forEach(ctrl => {
+    ctrl.addEventListener('squeezestart', () => {}); // grip button placeholder
 });
 
+// Read thumbstick axes for movement in VR
+renderer.xr.addEventListener('sessionstart', () => {
+    vrRig.position.copy(playerGroup.position);
+});
 renderer.xr.addEventListener('sessionend', () => {
-    // restore camera to cameraPivot
-    vrRig.remove(camera);
-    cameraPivot.add(camera);
-    camera.position.set(0, 0, 0);
-    // restore player at vrRig position
-    playerGroup.position.set(vrRig.position.x, vrRig.position.y, vrRig.position.z);
-    playerGroup.visible = true;
+    playerGroup.position.copy(vrRig.position);
 });
 
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
@@ -360,21 +348,79 @@ function animate() {
         pLegR.rotation.x =  Math.sin(ws) * 0.5;
     }
 
-    // 2. sun (island 1 only)
+    // 2. sun + moon day/night cycle (island 1 only)
     if (zone === 'island') {
         const sa = t * 0.015;
+
+        // sun orbits — opposite side from moon
         const sx = Math.cos(sa) * SUN_ORBIT_RADIUS;
         const sy = Math.sin(sa) * SUN_HEIGHT_BASE + 40;
         const sz = Math.sin(sa * 0.5) * 60;
         sunLight.position.set(sx, sy, sz);
         sunSphere.position.set(sx, sy, sz);
-        const hf  = Math.max(0, Math.min(1, sy / 120));
-        sunLight.color.setHex(hf > 0.5 ? 0xfffbe0 : 0xff9933);
-        sunSphere.material.color.setHex(hf > 0.5 ? 0xffdd44 : 0xff8800);
-        const sky = new THREE.Color().lerpColors(new THREE.Color(0xff7733), new THREE.Color(0x87ceeb), hf);
-        scene.background = sky;
-        if (scene.fog) scene.fog.color = sky;
-        hemi.color = sky;
+
+        // moon on opposite side of orbit
+        const mx = -sx;
+        const my = -sy + 20;
+        const mz = -sz;
+        moonSphere.position.set(mx, my, mz);
+
+        // sun height factor: 1 = high noon, 0 = horizon, negative = below
+        const sunH = sy / (SUN_HEIGHT_BASE + 40); // -0.3 to 1
+
+        if (sunH > 0.15) {
+            // ── DAY ──────────────────────────────────────────────────────────
+            sunSphere.visible  = true;
+            moonSphere.visible = false;
+            const dayT = Math.min(1, (sunH - 0.15) / 0.85);
+            sunLight.intensity = 0.8 + dayT * 0.6;
+            sunLight.color.setHex(0xfffbe0);
+            sunSphere.material.color.setHex(0xffdd44);
+            const sky = new THREE.Color().lerpColors(
+                new THREE.Color(0xffd580), // warm yellow near horizon
+                new THREE.Color(0x87ceeb), // sky blue high up
+                dayT
+            );
+            scene.background = sky;
+            if (scene.fog) { scene.fog.color = sky; scene.fog.density = 0.008; }
+            hemi.intensity = 0.4 + dayT * 0.1;
+
+        } else if (sunH > -0.08) {
+            // ── SUNSET / SUNRISE ─────────────────────────────────────────────
+            sunSphere.visible  = true;
+            moonSphere.visible = false;
+            const t2 = (sunH + 0.08) / 0.23; // 0 = dark, 1 = day
+            sunLight.intensity = t2 * 0.8;
+            sunLight.color.setHex(0xff6600);
+            sunSphere.material.color.setHex(t2 > 0.5 ? 0xff8800 : 0xff4400);
+            const sky = new THREE.Color().lerpColors(
+                new THREE.Color(0x1a0a2e), // deep purple night
+                new THREE.Color(0xff4400), // orange sunset
+                t2
+            );
+            scene.background = sky;
+            if (scene.fog) { scene.fog.color = sky; scene.fog.density = 0.006; }
+            hemi.intensity = 0.15 + t2 * 0.25;
+
+        } else {
+            // ── NIGHT ────────────────────────────────────────────────────────
+            sunSphere.visible  = false;
+            moonSphere.visible = my > 0; // only show moon when above horizon
+            sunLight.intensity = 0;
+
+            // moonlight — cool blue directional
+            const nightSky = new THREE.Color(0x060a14); // very dark navy
+            scene.background = nightSky;
+            if (scene.fog) { scene.fog.color = nightSky; scene.fog.density = 0.005; }
+            hemi.color.set(0x1a2a4a);
+            hemi.intensity = 0.12;
+
+            // pulse moonSphere glow slightly
+            if (moonSphere.visible) {
+                const moonGlow = 0.85 + Math.sin(t * 0.3) * 0.1;
+                moonSphere.material.opacity !== undefined && (moonSphere.material.opacity = moonGlow);
+            }
+        }
     }
 
     // 3. clouds + birds
@@ -577,39 +623,26 @@ function animate() {
             for (const source of session.inputSources) {
                 if (!source.gamepad) continue;
                 const axes = source.gamepad.axes;
-                // left thumbstick — move
                 if (source.handedness === 'left' && axes.length >= 4) {
-                    // get camera facing direction (headset look direction, flat on XZ)
-                    const camDir = new THREE.Vector3(0, 0, -1);
-                    camDir.applyQuaternion(camera.quaternion);
-                    camDir.y = 0; camDir.normalize();
-                    const camRight = new THREE.Vector3(1, 0, 0);
-                    camRight.applyQuaternion(camera.quaternion);
-                    camRight.y = 0; camRight.normalize();
-                    if (Math.abs(axes[3]) > 0.12) vrRig.position.addScaledVector(camDir,  -axes[3] * SPEED * dt);
-                    if (Math.abs(axes[2]) > 0.12) vrRig.position.addScaledVector(camRight, axes[2] * SPEED * dt);
-                    // ground snap
-                    const gY = zone === 'island2' ? getI2Height(vrRig.position.x, vrRig.position.z) : 0;
-                    vrRig.position.y = gY;
-                    // sync playerGroup for collisions + interactions
-                    // sync x/z for collision detection, keep underground so mesh never clips view
+                    const fwd   = new THREE.Vector3(0, 0, -1).applyQuaternion(vrRig.quaternion);
+                    const right = new THREE.Vector3(1, 0,  0).applyQuaternion(vrRig.quaternion);
+                    fwd.y = 0; fwd.normalize();
+                    right.y = 0; right.normalize();
+                    if (Math.abs(axes[3]) > 0.1) vrRig.position.addScaledVector(fwd,  -axes[3] * SPEED * dt);
+                    if (Math.abs(axes[2]) > 0.1) vrRig.position.addScaledVector(right, axes[2] * SPEED * dt);
                     playerGroup.position.x = vrRig.position.x;
                     playerGroup.position.z = vrRig.position.z;
-                    playerGroup.position.y = -999;
+                    const gY = zone === 'island2' ? getI2Height(vrRig.position.x, vrRig.position.z) : 0;
+                    vrRig.position.y = gY;
+                    playerGroup.position.y = gY;
                 }
-                // right thumbstick — smooth turn, gentle speed
                 if (source.handedness === 'right' && axes.length >= 4) {
-                    const deadzone = 0.15;
-                    if (Math.abs(axes[2]) > deadzone) {
-                        // smooth but controlled — 1.2 rad/sec max
-                        vrRig.rotation.y -= axes[2] * 1.2 * dt;
-                    }
+                    if (Math.abs(axes[2]) > 0.15) vrRig.rotation.y -= axes[2] * 0.03;
                 }
             }
         }
         resolveCollisions(vrRig);
         if (zone === 'island') resolveIslandBoundary(vrRig);
-
     }
 
     // 10. render
