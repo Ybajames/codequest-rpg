@@ -293,8 +293,8 @@ function animate() {
     const dt = Math.min(clock.getDelta(), 0.05);
     const t  = clock.elapsedTime;
 
-    // 1. player movement
-    if (!terminalOpen) {
+    // 1. player movement — skip entirely in VR
+    if (!terminalOpen && !renderer.xr.isPresenting) {
         const dir     = new THREE.Vector3();
         const forward = new THREE.Vector3(-Math.sin(controls.yaw), 0, -Math.cos(controls.yaw));
         const right   = new THREE.Vector3( Math.cos(controls.yaw), 0, -Math.sin(controls.yaw));
@@ -620,6 +620,9 @@ function animate() {
 
     // ── VR MOVEMENT ──────────────────────────────────────────────────────────────
     if (renderer.xr.isPresenting) {
+        // always keep player hidden and underground — nothing should override this
+        playerGroup.visible = false;
+        playerGroup.position.y = -999;
         const session = renderer.xr.getSession();
         if (session) {
             for (const source of session.inputSources) {
