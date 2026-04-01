@@ -111,24 +111,41 @@ const vrRig = new THREE.Group();
 scene.add(vrRig);
 
 renderer.xr.addEventListener('sessionstart', () => {
-    // reparent camera from cameraPivot to vrRig
     cameraPivot.remove(camera);
     vrRig.add(camera);
     vrRig.position.copy(playerGroup.position);
-    vrRig.position.y = 0;
-    // hide player completely — move underground so no mesh clips into view
+    // pull rig down so Quest head tracking (~1.6m real) puts eye level at NPC face height
+    vrRig.position.y = -1.2;
+    // hide every mesh individually + remove from render layer
     playerGroup.visible = false;
     playerGroup.position.y = -999;
+    playerGroup.traverse(child => {
+        child.visible = false;
+        if (child.isMesh) child.layers.disable(0);
+    });
+    // hide 2D HTML UI — not visible in VR anyway, but clean it up
+    ['ui','inventory','quest-btn','quests','crosshair'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
 });
 
 renderer.xr.addEventListener('sessionend', () => {
-    // restore camera
     vrRig.remove(camera);
     cameraPivot.add(camera);
     camera.position.set(0, 0, 0);
-    // restore player at rig position
-    playerGroup.position.set(vrRig.position.x, vrRig.position.y, vrRig.position.z);
+    vrRig.position.y = 0;
+    playerGroup.position.set(vrRig.position.x, 0, vrRig.position.z);
     playerGroup.visible = true;
+    playerGroup.traverse(child => {
+        child.visible = true;
+        if (child.isMesh) child.layers.enable(0);
+    });
+    // restore 2D UI
+    ['ui','inventory','quest-btn','crosshair'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = '';
+    });
 });
 
 // ── USERNAME SCREEN ───────────────────────────────────────────────────────────
@@ -504,13 +521,15 @@ function animate() {
     }
 
     // 9. interactions
+    // In VR use vrRig position for distance checks, not playerGroup (which is underground)
+    const interactPos = renderer.xr.isPresenting ? vrRig.position : playerGroup.position;
     if (!terminalOpen) {
         let interacting = false;
 
         if (zone === 'island') {
             // NPCs
             for (const npc of npcs) {
-                if (playerGroup.position.distanceTo(npc.position) < 4) {
+                if (interactPos.distanceTo(npc.position) < 4) {
                     interacting = true;
                     const done = inventory.includes(npc.userData.ability);
                     showDialogue(npc.userData.name, done);
@@ -524,7 +543,7 @@ function animate() {
                 }
             }
             // bug
-            if (bugState.alive && playerGroup.position.distanceTo(bugGroup.position) < 3.5) {
+            if (bugState.alive && interactPos.distanceTo(bugGroup.position) < 3.5) {
                 interacting = true;
                 lessonText.innerText = '⚠ PYTHON BUG!\nRequires: Print ability\n[E] to defeat';
                 if (controls.keys['KeyE'] && inventory.includes('Print')) {
@@ -541,7 +560,7 @@ function animate() {
 
             // boss interaction
             if (bossState.alive) {
-                const bossDist = playerGroup.position.distanceTo(bossGroup.position);
+                const bossDist = interactPos.distanceTo(bossGroup.position);
                 if (bossDist < 5) {
                     interacting = true;
                     if (allSkillsUnlocked()) {
@@ -578,7 +597,7 @@ function animate() {
         } else {
             // island 2 NPCs
             for (const npc of i2Npcs) {
-                if (playerGroup.position.distanceTo(npc.position) < 4) {
+                if (interactPos.distanceTo(npc.position) < 4) {
                     interacting = true;
                     const done = inventory.includes(npc.userData.ability);
                     showDialogue(npc.userData.name, done);
