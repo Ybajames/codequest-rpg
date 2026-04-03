@@ -86,23 +86,30 @@ document.body.appendChild(lockOverlay);
 setOverlayRef(lockOverlay);
 
 // ── VR SETUP ──────────────────────────────────────────────────────────────────
+// Guard flag — prevents the "offerSession called more than once" error
+// that occurs if the VR button is clicked while a session is already starting.
+let _vrSessionActive = false;
+
 const vrContainer = document.getElementById('vr-btn-container');
 try {
     if (navigator.xr) {
         navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-            if (supported) {
-                const vrBtn = VRButton.createButton(renderer);
-                vrContainer.appendChild(vrBtn);
-            }
-        }).catch(() => {}); // silently fail on http
+            if (!supported) return;
+            const vrBtn = VRButton.createButton(renderer);
+            // VRButton internally calls renderer.xr.setSession — intercept clicks
+            // to prevent double-calls when button is clicked rapidly.
+            vrBtn.addEventListener('click', () => {
+                if (_vrSessionActive) return; // already starting, ignore
+            }, true); // capture phase so it fires before VRButton's own handler
+            vrContainer.appendChild(vrBtn);
+        }).catch(() => {});
     }
-} catch(e) {} // silently fail if XR blocked
+} catch(e) {}
 
 // VR controllers — right trigger = interact (E key equivalent)
 const controller1 = renderer.xr.getController(0);
 const controller2 = renderer.xr.getController(1);
 controller1.addEventListener('selectstart', () => {
-    // right trigger: if near robot → toggle profile, else interact with NPC
     if (isNearRobot(controller1.position)) {
         toggleProfile();
     } else {
@@ -114,17 +121,20 @@ controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true
 controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 // controllers not added to scene — prevents Quest rendering its own controller models
 
-// ── VR RIG ───────────────────────────────────────────────────────────────────
+// ── VR RIG ────────────────────────────────────────────────────────────────────
 const vrRig = new THREE.Group();
 scene.add(vrRig);
 
 renderer.xr.addEventListener('sessionstart', () => {
+    if (_vrSessionActive) return; // guard: ignore duplicate sessionstart events
+    _vrSessionActive = true;
+
     cameraPivot.remove(camera);
     vrRig.add(camera);
     vrRig.position.copy(playerGroup.position);
     // pull rig down so Quest head tracking (~1.6m real) puts eye level at NPC face height
     vrRig.position.y = -1.2;
-    // hide every mesh individually + remove from render layer
+    // hide player mesh + disable from render layer
     playerGroup.visible = false;
     playerGroup.position.y = -999;
     playerGroup.traverse(child => {
@@ -132,7 +142,7 @@ renderer.xr.addEventListener('sessionstart', () => {
         if (child.isMesh) child.layers.disable(0);
     });
     showCompanion(true);
-    // hide 2D HTML UI — not visible in VR anyway, but clean it up
+    // hide 2D HTML UI
     ['ui','inventory','quest-btn','quests','crosshair'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -140,6 +150,8 @@ renderer.xr.addEventListener('sessionstart', () => {
 });
 
 renderer.xr.addEventListener('sessionend', () => {
+    _vrSessionActive = false; // reset guard so a new session can start later
+
     vrRig.remove(camera);
     cameraPivot.add(camera);
     camera.position.set(0, 0, 0);
