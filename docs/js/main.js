@@ -1,6 +1,6 @@
 // main.js — entry point, username screen, game loop
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
-import { updateVRStatus, updateVRPrompt, showVRHUD } from './vrhud.js';
+import { showCompanion, animateCompanion, isNearRobot, toggleProfile, closeProfile, setProfileData } from './vrcompanion.js';
 import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/webxr/VRButton.js';
 
 import { renderer, scene, camera, MAT, playerData } from './state.js';
@@ -101,7 +101,14 @@ try {
 // VR controllers — right trigger = interact (E key equivalent)
 const controller1 = renderer.xr.getController(0);
 const controller2 = renderer.xr.getController(1);
-controller1.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
+controller1.addEventListener('selectstart', () => {
+    // right trigger: if near robot → toggle profile, else interact with NPC
+    if (isNearRobot(controller1.position)) {
+        toggleProfile();
+    } else {
+        controls.keys['KeyE'] = true;
+    }
+});
 controller1.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
 controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
 controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
@@ -124,7 +131,7 @@ renderer.xr.addEventListener('sessionstart', () => {
         child.visible = false;
         if (child.isMesh) child.layers.disable(0);
     });
-    showVRHUD(true);
+    showCompanion(true);
     // hide 2D HTML UI — not visible in VR anyway, but clean it up
     ['ui','inventory','quest-btn','quests','crosshair'].forEach(id => {
         const el = document.getElementById(id);
@@ -143,7 +150,7 @@ renderer.xr.addEventListener('sessionend', () => {
         child.visible = true;
         if (child.isMesh) child.layers.enable(0);
     });
-    showVRHUD(false);
+    showCompanion(false);
     // restore 2D UI
     ['ui','inventory','quest-btn','crosshair'].forEach(id => {
         const el = document.getElementById(id);
@@ -541,7 +548,6 @@ function animate() {
                     } else {
                         const idx = npc.userData.currentChallenge || 0;
                         lessonText.innerText = npc.userData.lesson + `\nChallenge ${idx+1}/${npc.userData.challenges.length}  [E] to start`;
-                        if (renderer.xr.isPresenting) updateVRPrompt(npc.userData.name);
                         if (controls.keys['KeyE']) { openTerminal(npc.userData); controls.keys['KeyE'] = false; }
                     }
                 }
@@ -610,7 +616,6 @@ function animate() {
                     } else {
                         const idx = npc.userData.currentChallenge || 0;
                         lessonText.innerText = npc.userData.lesson + `\nChallenge ${idx+1}/${npc.userData.challenges.length}  [E] to start`;
-                        if (renderer.xr.isPresenting) updateVRPrompt(npc.userData.name);
                         if (controls.keys['KeyE']) { openTerminal(npc.userData); controls.keys['KeyE'] = false; }
                     }
                 }
@@ -625,7 +630,6 @@ function animate() {
         }
 
         if (!interacting) {
-            if (renderer.xr.isPresenting) updateVRPrompt(null);
             hideDialogue();
             if (zone === 'island2') {
                 const h = playerGroup.position.y;
@@ -678,16 +682,34 @@ function animate() {
         if (zone === 'island') resolveIslandBoundary(vrRig);
     }
 
-    // update VR HUD every frame
+    // animate companion + update profile data
     if (renderer.xr.isPresenting) {
-        const lvlEl = document.getElementById('levelText');
-        const xpEl  = document.getElementById('xpText');
-        const lsEl  = document.getElementById('lessonText');
-        updateVRStatus(
-            lvlEl ? lvlEl.innerText : 'LVL 1',
-            xpEl  ? xpEl.innerText  : '0 XP',
-            lsEl  ? lsEl.innerText  : ''
-        );
+        const isMoving = !!(controls.keys['KeyW']||controls.keys['KeyS']||controls.keys['KeyA']||controls.keys['KeyD']);
+        animateCompanion(vrRig.position, vrRig.rotation.y, t, isMoving);
+
+        // keep profile data fresh
+        setProfileData({
+            username:     playerData.username,
+            level:        xpState.level,
+            xp:           xpState.xp,
+            xpNext:       xpState.xpToNext,
+            skills:       [...inventory],
+            bugDefeated:  inventory.includes('Print') && !bugState.alive,
+            bossDefeated: bossState.defeated,
+            quests: [
+                { label:'📖 Learn Variables',       done: inventory.includes('Variable') },
+                { label:'📖 Learn Print',           done: inventory.includes('Print') },
+                { label:'🧪 Write your First Loop', done: inventory.includes('Loop') },
+                { label:'🧠 Logical Thinker',       done: inventory.includes('Logic') },
+                { label:'🔬 Learn 3 Skills',        done: inventory.length >= 3 },
+                { label:'⚔️ Defeat the Bug',        done: !bugState.alive },
+                { label:'🎓 Master all 6 Skills',   done: ['Variable','Constant','Print','Input','Logic','Loop'].every(s=>inventory.includes(s)) },
+                { label:'🌉 Cross the Bridge',      done: zone === 'island2' || inventory.includes('Function') },
+                { label:'⚙️ Learn Functions',       done: inventory.includes('Function') },
+                { label:'🏔️ Reach the Peak',        done: inventory.includes('Class') },
+                { label:'💀 Defeat the Final Boss', done: bossState.defeated },
+            ],
+        });
     }
 
     // 10. render
