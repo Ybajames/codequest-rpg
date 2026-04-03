@@ -12,7 +12,7 @@ import { resolveCollisions, resolveIslandBoundary } from './collision.js';
 import { npcs }                         from './npcs.js';
 import { bugGroup, bugLight, bugState } from './enemies.js';
 import { inventory, completeQuest, loadProgress, questsDoneCount } from './inventory.js';
-import { addXP }                        from './xp.js';
+import { addXP, xpState }               from './xp.js';
 import { initAudio, setOceanVolume, enterIsland2, exitIsland2 } from './audio.js';
 import { terminalOpen, openTerminal, closeTerminal, setOverlayRef } from './terminal.js';
 import {
