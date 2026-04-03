@@ -1,6 +1,13 @@
 // main.js — entry point, username screen, game loop
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
 import { showCompanion, animateCompanion, isNearRobot, toggleProfile, closeProfile, setProfileData } from './vrcompanion.js';
+import {
+    npcPanel, vrTerm, showNPCPanel, hideNPCPanel,
+    openVRTerminal, closeVRTerminal, vrTermOpen,
+    setVRCallbacks, setVRFeedback, advanceVRChallenge,
+    handleVRKey, getVRInput, incrementVRAttempts, showVRHint,
+    vrRaycast, laser1, laser2, setLasersVisible,
+} from './vrui.js';
 import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/webxr/VRButton.js';
 
 import { renderer, scene, camera, MAT, playerData } from './state.js';
@@ -116,15 +123,66 @@ const controller2 = renderer.xr.getController(1);
 let vrInteractPressed = false;
 
 const _c1WorldPos = new THREE.Vector3();
+const _c1WorldDir = new THREE.Vector3();
+const _c1WorldQuat = new THREE.Quaternion();
+
 controller1.addEventListener('selectstart', () => {
     controller1.getWorldPosition(_c1WorldPos);
+    controller1.getWorldQuaternion(_c1WorldQuat);
+    _c1WorldDir.set(0, 0, -1).applyQuaternion(_c1WorldQuat);
+
+    // check if pointing at a VR panel button
+    const hit = vrRaycast(_c1WorldPos, _c1WorldDir);
+    if (hit) {
+        handleVRPanelHit(hit);
+        return;
+    }
+
+    // check robot
     if (isNearRobot(_c1WorldPos)) {
         toggleProfile();
     } else {
         vrInteractPressed = true;
     }
 });
-controller2.addEventListener('selectstart', () => { vrInteractPressed = true; });
+
+const _c2WorldPos = new THREE.Vector3();
+const _c2WorldDir = new THREE.Vector3();
+const _c2WorldQuat = new THREE.Quaternion();
+controller2.addEventListener('selectstart', () => {
+    controller2.getWorldPosition(_c2WorldPos);
+    controller2.getWorldQuaternion(_c2WorldQuat);
+    _c2WorldDir.set(0, 0, -1).applyQuaternion(_c2WorldQuat);
+
+    const hit = vrRaycast(_c2WorldPos, _c2WorldDir);
+    if (hit) {
+        handleVRPanelHit(hit);
+        return;
+    }
+    vrInteractPressed = true;
+});
+
+function handleVRPanelHit(hit) {
+    if (hit.panel === 'npc') {
+        if (hit.button === 'start') {
+            // open VR terminal for this NPC
+            openVRTerminal(_vrCurrentNPC);
+        } else if (hit.button === 'close') {
+            hideNPCPanel();
+        }
+    } else if (hit.panel === 'term') {
+        if (hit.button === 'submit') {
+            onVRSubmit && onVRSubmit();
+        } else if (hit.button === 'close') {
+            onVRClose && onVRClose();
+        } else if (hit.button === 'hint') {
+            showVRHint();
+        } else if (hit.button.startsWith('key_')) {
+            const key = hit.button.slice(4); // strip 'key_'
+            handleVRKey(key);
+        }
+    }
+}
 
 // ── VR RIG ────────────────────────────────────────────────────────────────────
 const vrRig = new THREE.Group();
@@ -139,8 +197,7 @@ renderer.xr.addEventListener('sessionstart', () => {
     vrRig.add(controller1);
     vrRig.add(controller2);
     vrRig.position.copy(playerGroup.position);
-    // pull rig down so Quest head tracking (~1.6m real) puts eye level at NPC face height
-    vrRig.position.y = -1.2;
+    vrRig.position.y = 0; // rig sits at ground level — Quest floor tracking places eyes correctly
     // hide player mesh + disable from render layer
     playerGroup.visible = false;
     playerGroup.position.y = -999;
@@ -149,6 +206,7 @@ renderer.xr.addEventListener('sessionstart', () => {
         if (child.isMesh) child.layers.disable(0);
     });
     showCompanion(true);
+    setLasersVisible(true);
     // hide 2D HTML UI
     ['ui','inventory','quest-btn','quests','crosshair'].forEach(id => {
         const el = document.getElementById(id);
@@ -164,7 +222,6 @@ renderer.xr.addEventListener('sessionend', () => {
     vrRig.remove(controller2);
     cameraPivot.add(camera);
     camera.position.set(0, 0, 0);
-    vrRig.position.y = 0;
     playerGroup.position.set(vrRig.position.x, 0, vrRig.position.z);
     playerGroup.visible = true;
     playerGroup.traverse(child => {
@@ -172,6 +229,9 @@ renderer.xr.addEventListener('sessionend', () => {
         if (child.isMesh) child.layers.enable(0);
     });
     showCompanion(false);
+    setLasersVisible(false);
+    closeVRTerminal();
+    hideNPCPanel();
     // restore 2D UI
     ['ui','inventory','quest-btn','crosshair'].forEach(id => {
         const el = document.getElementById(id);
@@ -222,6 +282,89 @@ document.addEventListener('keydown', e => {
     if (e.shiftKey && e.code === 'KeyI') goToIsland1();
 });
 document.addEventListener('keyup', e => { if (terminalOpen) return; controls.keys[e.code] = false; });
+
+// ── VR ANSWER CHECKING ────────────────────────────────────────────────────────
+// Mirrors the normalizeCode + checkAnswer logic from terminal.js so VR can
+// check answers without opening the HTML terminal.
+function vrNormalize(str) {
+    return str.trim().toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/\s*=\s*/g, '=')
+        .replace(/\s*>\s*/g, '>')
+        .replace(/\s*<\s*/g, '<')
+        .replace(/\s*\(\s*/g, '(')
+        .replace(/\s*\)\s*/g, ')')
+        .replace(/\s*:\s*$/, ':');
+}
+function vrCheckAnswer(input, solutions) {
+    const n = vrNormalize(input);
+    return solutions.some(s => {
+        const ns = vrNormalize(s);
+        if (ns.includes('{string}')) {
+            const pattern = ns.replace('{string}', '(?:\'[^\']*\'|"[^"]*")');
+            return new RegExp('^' + pattern + '$').test(n);
+        }
+        if (ns.includes('{any}')) {
+            const pattern = ns.replace('{any}', '.+');
+            return new RegExp('^' + pattern + '$').test(n);
+        }
+        return ns === n;
+    });
+}
+
+// Wire up VR terminal submit + close callbacks
+setVRCallbacks(
+    // submit
+    () => {
+        if (!vrTermOpen) return;
+        const npcData   = _vrCurrentNPC;
+        if (!npcData) return;
+        const idx       = npcData.currentChallenge || 0;
+        const challenge = npcData.challenges[idx];
+        const input     = getVRInput();
+        if (!input.trim()) return;
+
+        incrementVRAttempts();
+
+        if (vrCheckAnswer(input, challenge.solutions)) {
+            setVRFeedback('correct', 'Correct! Great work!');
+            import('./audio.js').then(a => { a.playCorrect(); setTimeout(() => a.playUnlock(), 700); });
+            import('./xp.js').then(x => x.addXP(challenge.xp, 'Challenge Complete!'));
+
+            npcData.completed = npcData.completed || [];
+            npcData.completed.push(idx);
+            const nextIdx = idx + 1;
+
+            if (nextIdx >= npcData.challenges.length) {
+                import('./inventory.js').then(inv => inv.unlockAbility(npcData.ability));
+                setTimeout(() => {
+                    closeVRTerminal();
+                    hideNPCPanel();
+                }, 1800);
+            } else {
+                npcData.currentChallenge = nextIdx;
+                setTimeout(() => advanceVRChallenge(npcData), 1400);
+            }
+        } else {
+            import('./audio.js').then(a => a.playWrong());
+            const attempts = vrTerm._termAttempts || 1;
+            const msg = attempts <= 1
+                ? 'Not quite — check your syntax!'
+                : attempts === 2 ? 'Try the Hint button!'
+                : 'Hint shows the exact answer!';
+            setVRFeedback('wrong', msg);
+            if (attempts >= 2) showVRHint();
+        }
+    },
+    // close
+    () => {
+        closeVRTerminal();
+        hideNPCPanel();
+    }
+);
+
+// keep a ref to current NPC being shown in VR terminal
+let _vrCurrentNPC = null;
 
 const lessonText = document.getElementById('lessonText');
 
@@ -557,7 +700,21 @@ function animate() {
     // Unified interact: keyboard E on desktop, controller trigger in VR
     const pressedE = controls.keys['KeyE'] || vrInteractPressed;
     vrInteractPressed = false; // consume the latch every frame
-    if (!terminalOpen) {
+
+    // Update laser pointer positions each frame in VR
+    if (renderer.xr.isPresenting) {
+        controller1.getWorldPosition(_c1WorldPos);
+        controller1.getWorldQuaternion(_c1WorldQuat);
+        laser1.position.copy(_c1WorldPos);
+        laser1.quaternion.copy(_c1WorldQuat);
+
+        controller2.getWorldPosition(_c2WorldPos);
+        controller2.getWorldQuaternion(_c2WorldQuat);
+        laser2.position.copy(_c2WorldPos);
+        laser2.quaternion.copy(_c2WorldQuat);
+    }
+
+    if (!terminalOpen && !vrTermOpen) {
         let interacting = false;
 
         if (zone === 'island') {
@@ -569,10 +726,16 @@ function animate() {
                     showDialogue(npc.userData.name, done);
                     if (done) {
                         lessonText.innerText = `✓ ${npc.userData.ability} unlocked!\nYou know this one!`;
+                        if (renderer.xr.isPresenting) { _vrCurrentNPC = npc.userData; showNPCPanel(npc.userData, npc.position); }
                     } else {
                         const idx = npc.userData.currentChallenge || 0;
                         lessonText.innerText = npc.userData.lesson + `\nChallenge ${idx+1}/${npc.userData.challenges.length}  [E] to start`;
-                        if (pressedE) { openTerminal(npc.userData); controls.keys['KeyE'] = false; }
+                        if (renderer.xr.isPresenting) {
+                            _vrCurrentNPC = npc.userData;
+                            showNPCPanel(npc.userData, npc.position);
+                        } else if (pressedE) {
+                            openTerminal(npc.userData); controls.keys['KeyE'] = false;
+                        }
                     }
                 }
             }
@@ -637,10 +800,16 @@ function animate() {
                     showDialogue(npc.userData.name, done);
                     if (done) {
                         lessonText.innerText = `✓ ${npc.userData.ability} unlocked!\nKeep climbing! 🏔️`;
+                        if (renderer.xr.isPresenting) { _vrCurrentNPC = npc.userData; showNPCPanel(npc.userData, npc.position); }
                     } else {
                         const idx = npc.userData.currentChallenge || 0;
                         lessonText.innerText = npc.userData.lesson + `\nChallenge ${idx+1}/${npc.userData.challenges.length}  [E] to start`;
-                        if (pressedE) { openTerminal(npc.userData); controls.keys['KeyE'] = false; }
+                        if (renderer.xr.isPresenting) {
+                            _vrCurrentNPC = npc.userData;
+                            showNPCPanel(npc.userData, npc.position);
+                        } else if (pressedE) {
+                            openTerminal(npc.userData); controls.keys['KeyE'] = false;
+                        }
                     }
                 }
             }
@@ -655,8 +824,9 @@ function animate() {
 
         if (!interacting) {
             hideDialogue();
+            if (renderer.xr.isPresenting) hideNPCPanel();
             if (zone === 'island2') {
-                const h = playerGroup.position.y;
+                const h = interactPos.y;
                 const hint = h > 18 ? '🏔️ Almost at the peak!' : h > 12 ? '⛰️ Halfway up!' : h > 5 ? '🌿 Keep climbing north!' : '🌉 Head toward the mountain!';
                 lessonText.innerText = `${hint}\nFind each teacher on the way up.`;
             } else {
@@ -695,7 +865,7 @@ function animate() {
                     if (Math.abs(axes[3]) > 0.12) vrRig.position.addScaledVector(camDir,  -axes[3] * SPEED * dt);
                     if (Math.abs(axes[2]) > 0.12) vrRig.position.addScaledVector(camRight, axes[2] * SPEED * dt);
                     const gY = zone === 'island2' ? getI2Height(vrRig.position.x, vrRig.position.z) : 0;
-                    vrRig.position.y = gY - 1.2; // keep the -1.2 eye-height offset
+                    vrRig.position.y = gY; // rig at ground level, Quest tracking handles eye height
                     // sync x/z for collisions — keep player underground
                     playerGroup.position.x = vrRig.position.x;
                     playerGroup.position.z = vrRig.position.z;
