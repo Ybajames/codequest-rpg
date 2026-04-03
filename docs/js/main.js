@@ -106,20 +106,25 @@ try {
     }
 } catch(e) {}
 
-// VR controllers — right trigger = interact (E key equivalent)
+// VR controllers
 const controller1 = renderer.xr.getController(0);
 const controller2 = renderer.xr.getController(1);
+// Controllers are added to vrRig inside sessionstart so their world positions are correct.
+
+// One-frame "just pressed" latch — avoids the trigger firing and clearing
+// before the game loop reads it (which happened when using keys['KeyE'] directly).
+let vrInteractPressed = false;
+
+const _c1WorldPos = new THREE.Vector3();
 controller1.addEventListener('selectstart', () => {
-    if (isNearRobot(controller1.position)) {
+    controller1.getWorldPosition(_c1WorldPos);
+    if (isNearRobot(_c1WorldPos)) {
         toggleProfile();
     } else {
-        controls.keys['KeyE'] = true;
+        vrInteractPressed = true;
     }
 });
-controller1.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
-controller2.addEventListener('selectstart', () => { controls.keys['KeyE'] = true; });
-controller2.addEventListener('selectend',   () => { controls.keys['KeyE'] = false; });
-// controllers not added to scene — prevents Quest rendering its own controller models
+controller2.addEventListener('selectstart', () => { vrInteractPressed = true; });
 
 // ── VR RIG ────────────────────────────────────────────────────────────────────
 const vrRig = new THREE.Group();
@@ -131,6 +136,8 @@ renderer.xr.addEventListener('sessionstart', () => {
 
     cameraPivot.remove(camera);
     vrRig.add(camera);
+    vrRig.add(controller1);
+    vrRig.add(controller2);
     vrRig.position.copy(playerGroup.position);
     // pull rig down so Quest head tracking (~1.6m real) puts eye level at NPC face height
     vrRig.position.y = -1.2;
@@ -153,6 +160,8 @@ renderer.xr.addEventListener('sessionend', () => {
     _vrSessionActive = false; // reset guard so a new session can start later
 
     vrRig.remove(camera);
+    vrRig.remove(controller1);
+    vrRig.remove(controller2);
     cameraPivot.add(camera);
     camera.position.set(0, 0, 0);
     vrRig.position.y = 0;
@@ -545,6 +554,9 @@ function animate() {
     // 9. interactions
     // In VR use vrRig position for distance checks, not playerGroup (which is underground)
     const interactPos = renderer.xr.isPresenting ? vrRig.position : playerGroup.position;
+    // Unified interact: keyboard E on desktop, controller trigger in VR
+    const pressedE = controls.keys['KeyE'] || vrInteractPressed;
+    vrInteractPressed = false; // consume the latch every frame
     if (!terminalOpen) {
         let interacting = false;
 
@@ -560,7 +572,7 @@ function animate() {
                     } else {
                         const idx = npc.userData.currentChallenge || 0;
                         lessonText.innerText = npc.userData.lesson + `\nChallenge ${idx+1}/${npc.userData.challenges.length}  [E] to start`;
-                        if (controls.keys['KeyE']) { openTerminal(npc.userData); controls.keys['KeyE'] = false; }
+                        if (pressedE) { openTerminal(npc.userData); controls.keys['KeyE'] = false; }
                     }
                 }
             }
@@ -568,7 +580,7 @@ function animate() {
             if (bugState.alive && interactPos.distanceTo(bugGroup.position) < 3.5) {
                 interacting = true;
                 lessonText.innerText = '⚠ PYTHON BUG!\nRequires: Print ability\n[E] to defeat';
-                if (controls.keys['KeyE'] && inventory.includes('Print')) {
+                if (pressedE && inventory.includes('Print')) {
                     bugState.alive = false;
                     scene.remove(bugGroup);
                     completeQuest('defeat_bug');
@@ -587,7 +599,7 @@ function animate() {
                     interacting = true;
                     if (allSkillsUnlocked()) {
                         lessonText.innerText = '💀 FINAL BOSS\nYou have all skills!\n[E] to unleash your power!';
-                        if (controls.keys['KeyE']) {
+                        if (pressedE) {
                             defeatBoss();
                             completeQuest('defeat_boss');
                             addXP(200);
@@ -602,7 +614,7 @@ function animate() {
             }
 
             // bridge gate
-            const gateDist = Math.sqrt(playerGroup.position.x**2 + (playerGroup.position.z - (-54))**2);
+            const gateDist = Math.sqrt(interactPos.x**2 + (interactPos.z - (-54))**2);
             if (gateDist < 5) {
                 interacting = true;
                 if (allStarterUnlocked()) {
@@ -614,7 +626,7 @@ function animate() {
                 }
             }
             // auto-cross when player walks to bridge end
-            if (playerGroup.position.z < BRIDGE_END_Z && gateState.open) goToIsland2();
+            if (interactPos.z < BRIDGE_END_Z && gateState.open) goToIsland2();
 
         } else {
             // island 2 NPCs
@@ -628,16 +640,16 @@ function animate() {
                     } else {
                         const idx = npc.userData.currentChallenge || 0;
                         lessonText.innerText = npc.userData.lesson + `\nChallenge ${idx+1}/${npc.userData.challenges.length}  [E] to start`;
-                        if (controls.keys['KeyE']) { openTerminal(npc.userData); controls.keys['KeyE'] = false; }
+                        if (pressedE) { openTerminal(npc.userData); controls.keys['KeyE'] = false; }
                     }
                 }
             }
             // return to island 1 — walk to edge
-            const edgeDist = Math.sqrt((playerGroup.position.x-I2.x)**2 + (playerGroup.position.z-(I2.z+33))**2);
+            const edgeDist = Math.sqrt((interactPos.x-I2.x)**2 + (interactPos.z-(I2.z+33))**2);
             if (edgeDist < 4) {
                 interacting = true;
                 lessonText.innerText = '🌉 Return to starter island?\n[E] to cross back';
-                if (controls.keys['KeyE']) { goToIsland1(); controls.keys['KeyE'] = false; }
+                if (pressedE) { goToIsland1(); controls.keys['KeyE'] = false; }
             }
         }
 
@@ -666,25 +678,30 @@ function animate() {
         playerGroup.position.y = -999;
         const session = renderer.xr.getSession();
         if (session) {
+            // Get the camera's world quaternion (includes vrRig rotation)
+            // so forward/right directions are correct even after snap-turning
+            const _worldQuat = new THREE.Quaternion();
+            camera.getWorldQuaternion(_worldQuat);
+
             for (const source of session.inputSources) {
                 if (!source.gamepad) continue;
                 const axes = source.gamepad.axes;
-                // left thumbstick — move relative to headset direction
+                // left thumbstick — move relative to headset facing direction
                 if (source.handedness === 'left' && axes.length >= 4) {
-                    const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                    const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(_worldQuat);
                     camDir.y = 0; camDir.normalize();
-                    const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                    const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(_worldQuat);
                     camRight.y = 0; camRight.normalize();
                     if (Math.abs(axes[3]) > 0.12) vrRig.position.addScaledVector(camDir,  -axes[3] * SPEED * dt);
                     if (Math.abs(axes[2]) > 0.12) vrRig.position.addScaledVector(camRight, axes[2] * SPEED * dt);
                     const gY = zone === 'island2' ? getI2Height(vrRig.position.x, vrRig.position.z) : 0;
-                    vrRig.position.y = gY;
-                    // sync x/z only for collisions — keep player underground
+                    vrRig.position.y = gY - 1.2; // keep the -1.2 eye-height offset
+                    // sync x/z for collisions — keep player underground
                     playerGroup.position.x = vrRig.position.x;
                     playerGroup.position.z = vrRig.position.z;
                     playerGroup.position.y = -999;
                 }
-                // right thumbstick — smooth turn
+                // right thumbstick — smooth turn (rotate the rig, not the camera)
                 if (source.handedness === 'right' && axes.length >= 4) {
                     if (Math.abs(axes[2]) > 0.12) vrRig.rotation.y -= axes[2] * 1.2 * dt;
                 }
