@@ -5,7 +5,7 @@ import {
     npcPanel, vrTerm, showNPCPanel, hideNPCPanel,
     openVRTerminal, closeVRTerminal, vrTermOpen,
     setVRCallbacks, setVRFeedback, advanceVRChallenge,
-    handleVRKey, getVRInput, incrementVRAttempts, showVRHint,
+    handleVRKey, getVRInput, getVRAttempts, incrementVRAttempts, showVRHint,
     vrRaycast, updateVRCursor, laser1, laser2, setLasersVisible,
 } from './vrui.js';
 import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/webxr/VRButton.js';
@@ -347,7 +347,7 @@ setVRCallbacks(
             }
         } else {
             import('./audio.js').then(a => a.playWrong());
-            const attempts = vrTerm._termAttempts || 1;
+            const attempts = getVRAttempts();
             const msg = attempts <= 1
                 ? 'Not quite — check your syntax!'
                 : attempts === 2 ? 'Try the Hint button!'
@@ -363,6 +363,8 @@ setVRCallbacks(
     }
 );
 
+// Module-level reusable objects — avoids per-frame allocation in hot paths
+const _vrWorldQuat = new THREE.Quaternion();
 // keep a ref to current NPC being shown in VR terminal
 let _vrCurrentNPC = null;
 
@@ -461,6 +463,7 @@ function goToIsland2() {
     zone = 'island2';
     enterIsland2();
     playerGroup.position.set(I2.x + 16, getI2Height(I2.x + 16, I2.z + 26), I2.z + 26);
+    if (renderer.xr.isPresenting) vrRig.position.set(I2.x + 16, 0, I2.z + 26);
     scene.background = new THREE.Color(0x6080a0);
     scene.fog = new THREE.FogExp2(0x7090b0, 0.004);
     completeQuest('cross_bridge');
@@ -470,6 +473,7 @@ function goToIsland1() {
     zone = 'island';
     exitIsland2();
     playerGroup.position.set(0, 0, -50);
+    if (renderer.xr.isPresenting) vrRig.position.set(0, 0, -50);
     scene.background = new THREE.Color(0x87ceeb);
     scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);
     updateProgressMap();
@@ -576,6 +580,8 @@ function animate() {
             );
             scene.background = sky;
             if (scene.fog) { scene.fog.color = sky; scene.fog.density = 0.008; }
+            hemi.color.set(0x87ceeb);        // sky blue from above
+            hemi.groundColor.set(0x5a8a3a); // green from ground
             hemi.intensity = 0.4 + dayT * 0.1;
 
         } else if (sunH > -0.08) {
@@ -593,6 +599,8 @@ function animate() {
             );
             scene.background = sky;
             if (scene.fog) { scene.fog.color = sky; scene.fog.density = 0.006; }
+            hemi.color.set(new THREE.Color().lerpColors(new THREE.Color(0x1a2a4a), new THREE.Color(0xff6633), t2));
+            hemi.groundColor.set(new THREE.Color().lerpColors(new THREE.Color(0x050a14), new THREE.Color(0x3a2a10), t2));
             hemi.intensity = 0.15 + t2 * 0.25;
 
         } else {
@@ -634,13 +642,14 @@ function animate() {
     });
 
     // 4. NPC face player + light pulse
+    const _facePos = renderer.xr.isPresenting ? vrRig.position : playerGroup.position;
     npcs.forEach((npc, i) => {
         npc.userData.light.intensity = 0.6 + Math.sin(t*2+i)*0.3;
-        npc.rotation.y = Math.atan2(playerGroup.position.x-npc.position.x, playerGroup.position.z-npc.position.z);
+        npc.rotation.y = Math.atan2(_facePos.x-npc.position.x, _facePos.z-npc.position.z);
     });
     i2Npcs.forEach((npc, i) => {
         npc.userData.light.intensity = 0.9 + Math.sin(t*1.8+i)*0.4;
-        npc.rotation.y = Math.atan2(playerGroup.position.x-npc.position.x, playerGroup.position.z-npc.position.z);
+        npc.rotation.y = Math.atan2(_facePos.x-npc.position.x, _facePos.z-npc.position.z);
     });
 
     // 5. snow
@@ -855,17 +864,16 @@ function animate() {
         if (session) {
             // Get the camera's world quaternion (includes vrRig rotation)
             // so forward/right directions are correct even after snap-turning
-            const _worldQuat = new THREE.Quaternion();
-            camera.getWorldQuaternion(_worldQuat);
+            camera.getWorldQuaternion(_vrWorldQuat);
 
             for (const source of session.inputSources) {
                 if (!source.gamepad) continue;
                 const axes = source.gamepad.axes;
                 // left thumbstick — move relative to headset facing direction
                 if (source.handedness === 'left' && axes.length >= 4) {
-                    const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(_worldQuat);
+                    const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(_vrWorldQuat);
                     camDir.y = 0; camDir.normalize();
-                    const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(_worldQuat);
+                    const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(_vrWorldQuat);
                     camRight.y = 0; camRight.normalize();
                     if (Math.abs(axes[3]) > 0.12) vrRig.position.addScaledVector(camDir,  -axes[3] * SPEED * dt);
                     if (Math.abs(axes[2]) > 0.12) vrRig.position.addScaledVector(camRight, axes[2] * SPEED * dt);
@@ -888,8 +896,19 @@ function animate() {
 
     // animate companion + update profile data
     if (renderer.xr.isPresenting) {
-        const isMoving = !!(controls.keys['KeyW']||controls.keys['KeyS']||controls.keys['KeyA']||controls.keys['KeyD']);
-        animateCompanion(vrRig.position, vrRig.rotation.y, t, isMoving);
+        // detect movement from thumbstick axes, not keyboard keys
+        let _vrIsMoving = false;
+        const _mvSession = renderer.xr.getSession();
+        if (_mvSession) {
+            for (const src of _mvSession.inputSources) {
+                if (src.handedness === 'left' && src.gamepad?.axes?.length >= 4) {
+                    if (Math.abs(src.gamepad.axes[2]) > 0.12 || Math.abs(src.gamepad.axes[3]) > 0.12) {
+                        _vrIsMoving = true;
+                    }
+                }
+            }
+        }
+        animateCompanion(vrRig.position, vrRig.rotation.y, t, _vrIsMoving);
 
         // keep profile data fresh
         setProfileData({

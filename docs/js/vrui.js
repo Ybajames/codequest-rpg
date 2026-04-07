@@ -185,7 +185,9 @@ export function closeVRTerminal() {
 }
 
 function positionTermInFrontOfCamera() {
-    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const worldQuat = new THREE.Quaternion();
+    camera.getWorldQuaternion(worldQuat);
+    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(worldQuat);
     dir.y = 0; dir.normalize();
     const camWorld = camera.getWorldPosition(new THREE.Vector3());
     vrTerm.mesh.position.set(
@@ -464,6 +466,7 @@ export function handleVRKey(key) {
 }
 
 export function getVRInput() { return _termInput; }
+export function getVRAttempts() { return _termAttempts; }
 export function incrementVRAttempts() { _termAttempts++; drawVRTerminal(); }
 export function showVRHint() { _termShowHint = true; drawVRTerminal(); }
 
