@@ -154,12 +154,18 @@ let _termShowHint  = false;
 export let vrTermOpen = false;
 
 // callbacks wired in by main.js
+let _onVRSubmit = null;
+let _onVRClose  = null;
 export let onVRSubmit = null;
 export let onVRClose  = null;
 export function setVRCallbacks(submitFn, closeFn) {
-    onVRSubmit = submitFn;
-    onVRClose  = closeFn;
+    _onVRSubmit = submitFn;
+    _onVRClose  = closeFn;
+    onVRSubmit  = submitFn;
+    onVRClose   = closeFn;
 }
+export function callVRSubmit() { if (_onVRSubmit) _onVRSubmit(); }
+export function callVRClose()  { if (_onVRClose)  _onVRClose();  }
 
 export function openVRTerminal(npcData) {
     _termNPC       = npcData;
@@ -438,13 +444,32 @@ export function vrRaycast(rayOrigin, rayDir) {
     return null;
 }
 
-// Called every frame from main.js to update cursor position on panels
-export function updateVRCursor(rayOrigin, rayDir) {
-    const npcResult  = hitTestPanel(npcPanel, rayOrigin, rayDir);
-    if (npcResult)  { drawNPCPanel(npcResult.px, npcResult.py); return; }
-    const termResult = hitTestPanel(vrTerm, rayOrigin, rayDir);
-    if (termResult) { drawVRTerminal(termResult.px, termResult.py); return; }
-    // no hit — redraw without cursor (only if previously had cursor to avoid thrashing)
+// Track which panel had a cursor last frame so we can clear it
+let _lastCursorPanel = null;
+
+// Called every frame from main.js — pass BOTH controller rays
+// Whichever one is hitting a panel wins; if neither, clear the cursor
+export function updateVRCursor(ray1Origin, ray1Dir, ray2Origin, ray2Dir) {
+    // Try controller 1 first, then controller 2
+    let result = hitTestPanel(npcPanel, ray1Origin, ray1Dir)
+              || hitTestPanel(vrTerm,   ray1Origin, ray1Dir)
+              || (ray2Origin && (hitTestPanel(npcPanel, ray2Origin, ray2Dir)
+                              || hitTestPanel(vrTerm,   ray2Origin, ray2Dir)));
+
+    if (result) {
+        // figure out which panel was hit
+        const npcResult  = hitTestPanel(npcPanel, ray1Origin, ray1Dir)
+                        || (ray2Origin && hitTestPanel(npcPanel, ray2Origin, ray2Dir));
+        const termResult = !npcResult && (hitTestPanel(vrTerm, ray1Origin, ray1Dir)
+                        || (ray2Origin && hitTestPanel(vrTerm, ray2Origin, ray2Dir)));
+
+        if (npcResult)  { drawNPCPanel(npcResult.px, npcResult.py);    _lastCursorPanel = 'npc';  return; }
+        if (termResult) { drawVRTerminal(termResult.px, termResult.py); _lastCursorPanel = 'term'; return; }
+    }
+
+    // No hit — clear cursor on whichever panel had it last frame
+    if (_lastCursorPanel === 'npc')  { drawNPCPanel();    _lastCursorPanel = null; }
+    if (_lastCursorPanel === 'term') { drawVRTerminal();   _lastCursorPanel = null; }
 }
 
 // ── HANDLE KEY PRESS ──────────────────────────────────────────────────────────

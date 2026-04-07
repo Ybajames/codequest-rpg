@@ -7,6 +7,7 @@ import {
     setVRCallbacks, setVRFeedback, advanceVRChallenge,
     handleVRKey, getVRInput, getVRAttempts, incrementVRAttempts, showVRHint,
     vrRaycast, updateVRCursor, laser1, laser2, setLasersVisible,
+    callVRSubmit, callVRClose,
 } from './vrui.js';
 import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/webxr/VRButton.js';
 
@@ -163,18 +164,18 @@ controller2.addEventListener('selectstart', () => {
 });
 
 function handleVRPanelHit(hit) {
+    if (!hit || !hit.button) return; // ray hit panel background — no button
     if (hit.panel === 'npc') {
         if (hit.button === 'start') {
-            // open VR terminal for this NPC
             openVRTerminal(_vrCurrentNPC);
         } else if (hit.button === 'close') {
             hideNPCPanel();
         }
     } else if (hit.panel === 'term') {
         if (hit.button === 'submit') {
-            onVRSubmit && onVRSubmit();
+            callVRSubmit();
         } else if (hit.button === 'close') {
-            onVRClose && onVRClose();
+            callVRClose();
         } else if (hit.button === 'hint') {
             showVRHint();
         } else if (hit.button.startsWith('key_')) {
@@ -724,8 +725,8 @@ function animate() {
         laser2.position.copy(_c2WorldPos);
         laser2.quaternion.copy(_c2WorldQuat);
 
-        // Update cursor dot on whichever panel controller 1 is pointing at
-        updateVRCursor(_c1WorldPos, _c1WorldDir);
+        // Update cursor dot — whichever controller is pointing at a panel wins
+        updateVRCursor(_c1WorldPos, _c1WorldDir, _c2WorldPos, _c2WorldDir);
     }
 
     if (!terminalOpen && !vrTermOpen) {
