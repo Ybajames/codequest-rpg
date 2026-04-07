@@ -64,8 +64,8 @@ function makePanel(canvasW, canvasH, worldW, worldH) {
 }
 
 // ── NPC INTERACTION PANEL ─────────────────────────────────────────────────────
-// 600×340 canvas → 1.2m × 0.68m in world
-export const npcPanel = makePanel(600, 340, 1.2, 0.68);
+// NPC panel: 1800×1020 canvas → 1.2m × 0.68m world (150 px/cm, sharp in VR)
+export const npcPanel = makePanel(1800, 1020, 1.2, 0.68);
 let _npcData   = null;
 let _npcMesh   = null; // the THREE.Group of the NPC being shown
 
@@ -83,70 +83,66 @@ export function hideNPCPanel() {
     _npcData = null;
 }
 
-function drawNPCPanel() {
+function drawNPCPanel(cursorX = -1, cursorY = -1) {
     const { ctx, canvasW: W, canvasH: H, tex } = npcPanel;
     ctx.clearRect(0, 0, W, H);
 
     // background
-    roundRect(ctx, 2, 2, W-4, H-4, 12);
+    roundRect(ctx, 6, 6, W-12, H-12, 36);
     ctx.fillStyle = C.bg; ctx.fill();
-    ctx.strokeStyle = C.border; ctx.lineWidth = 3; ctx.stroke();
+    ctx.strokeStyle = C.border; ctx.lineWidth = 9; ctx.stroke();
 
-    // inner border
-    roundRect(ctx, 10, 10, W-20, H-20, 8);
-    ctx.strokeStyle = C.borderDim; ctx.lineWidth = 1; ctx.stroke();
+    roundRect(ctx, 30, 30, W-60, H-60, 24);
+    ctx.strokeStyle = C.borderDim; ctx.lineWidth = 3; ctx.stroke();
 
     const done = _npcData && _npcData.completed && _npcData.completed.length >= (_npcData.challenges?.length || 5);
 
     // NPC name
     ctx.fillStyle = C.cyan;
-    ctx.font = `bold 20px ${C.font}`;
+    ctx.font = `bold 60px ${C.font}`;
     ctx.textAlign = 'center';
-    ctx.shadowColor = C.cyan; ctx.shadowBlur = 8;
-    ctx.fillText(_npcData?.name || '', W/2, 48);
+    ctx.shadowColor = C.cyan; ctx.shadowBlur = 24;
+    ctx.fillText(_npcData?.name || '', W/2, 144);
     ctx.shadowBlur = 0;
 
     // divider
-    ctx.strokeStyle = C.borderDim; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(30, 62); ctx.lineTo(W-30, 62); ctx.stroke();
+    ctx.strokeStyle = C.borderDim; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(90, 186); ctx.lineTo(W-90, 186); ctx.stroke();
 
     // lesson preview
     ctx.fillStyle = C.white;
-    ctx.font = `15px ${C.font}`;
+    ctx.font = `45px ${C.font}`;
     ctx.textAlign = 'center';
     const lesson = (_npcData?.lesson || '').split('\n');
-    lesson.forEach((line, i) => ctx.fillText(line, W/2, 90 + i * 22));
+    lesson.forEach((line, i) => ctx.fillText(line, W/2, 270 + i * 66));
 
+    npcPanel.buttons = {};
     if (done) {
-        // already completed
         ctx.fillStyle = C.green;
-        ctx.font = `bold 16px ${C.font}`;
-        ctx.fillText('✓ ABILITY ALREADY UNLOCKED', W/2, 185);
-
-        // Close button
-        npcPanel.buttons = {};
-        drawButton(ctx, npcPanel, 'close', W/2 - 100, 220, 200, 52, '✕  Close', C.btnRed, C.red);
+        ctx.font = `bold 48px ${C.font}`;
+        ctx.fillText('✓ ABILITY ALREADY UNLOCKED', W/2, 555);
+        drawButton(ctx, npcPanel, 'close', W/2 - 300, 660, 600, 156, '✕  Close', C.btnRed, C.red, 48);
     } else {
-        // challenge info
-        const idx = _npcData?.currentChallenge || 0;
+        const idx   = _npcData?.currentChallenge || 0;
         const total = _npcData?.challenges?.length || 5;
-        const xp = _npcData?.challenges?.[idx]?.xp || 0;
+        const xp    = _npcData?.challenges?.[idx]?.xp || 0;
         ctx.fillStyle = C.yellow;
-        ctx.font = `14px ${C.font}`;
-        ctx.fillText(`Challenge ${idx+1} of ${total}  ·  +${xp} XP`, W/2, 178);
+        ctx.font = `42px ${C.font}`;
+        ctx.fillText(`Challenge ${idx+1} of ${total}  ·  +${xp} XP`, W/2, 534);
 
-        // Start button
-        npcPanel.buttons = {};
-        drawButton(ctx, npcPanel, 'start', W/2 - 120, 210, 240, 60, '▶  Start Challenge', C.btnBg, C.cyan);
-        drawButton(ctx, npcPanel, 'close', W/2 - 60,  285,  120, 36, '✕ Close', C.btnRed, C.red);
+        drawButton(ctx, npcPanel, 'start', W/2 - 360, 630, 720, 180, '▶  Start Challenge', C.btnBg, C.cyan, 54);
+        drawButton(ctx, npcPanel, 'close', W/2 - 180, 834, 360, 108, '✕ Close', C.btnRed, C.red, 42);
     }
+
+    // cursor dot
+    if (cursorX >= 0) drawCursor(ctx, cursorX, cursorY);
 
     tex.needsUpdate = true;
 }
 
 // ── VR TERMINAL ───────────────────────────────────────────────────────────────
-// 900×1100 canvas → 1.5m × 1.83m in world — big enough to be readable
-export const vrTerm = makePanel(900, 1100, 1.5, 1.833);
+// VR Terminal: 2700×3300 canvas → 1.5m × 1.833m world (sharp in VR)
+export const vrTerm = makePanel(2700, 3300, 1.5, 1.833);
 
 let _termNPC       = null;
 let _termChallenge = null;
@@ -227,192 +223,226 @@ const KB_ROWS = [
     ['SPACE','⌫','CLEAR'],
 ];
 
-function drawVRTerminal() {
+function drawVRTerminal(cursorX = -1, cursorY = -1) {
     const { ctx, canvasW: W, canvasH: H, tex } = vrTerm;
     ctx.clearRect(0, 0, W, H);
     vrTerm.buttons = {};
 
     // background
-    roundRect(ctx, 2, 2, W-4, H-4, 14);
+    roundRect(ctx, 6, 6, W-12, H-12, 42);
     ctx.fillStyle = C.bg; ctx.fill();
-    ctx.strokeStyle = C.border; ctx.lineWidth = 3; ctx.stroke();
-    roundRect(ctx, 10, 10, W-20, H-20, 10);
-    ctx.strokeStyle = C.borderDim; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = C.border; ctx.lineWidth = 9; ctx.stroke();
+    roundRect(ctx, 30, 30, W-60, H-60, 30);
+    ctx.strokeStyle = C.borderDim; ctx.lineWidth = 3; ctx.stroke();
 
     // ── header bar ──
     ctx.fillStyle = 'rgba(0,245,255,0.07)';
-    ctx.fillRect(3, 3, W-6, 54);
+    ctx.fillRect(6, 6, W-12, 162);
     ctx.fillStyle = C.cyan;
-    ctx.font = `bold 16px ${C.font}`;
+    ctx.font = `bold 48px ${C.font}`;
     ctx.textAlign = 'left';
-    ctx.shadowColor = C.cyan; ctx.shadowBlur = 6;
-    ctx.fillText('  ' + (_termNPC?.ability || '').toLowerCase() + '_challenge.py', 20, 34);
+    ctx.shadowColor = C.cyan; ctx.shadowBlur = 18;
+    ctx.fillText('  ' + (_termNPC?.ability || '').toLowerCase() + '_challenge.py', 60, 102);
     ctx.shadowBlur = 0;
 
     // close button top-right
-    drawButton(ctx, vrTerm, 'close', W-68, 8, 56, 38, '✕', C.btnRed, C.red);
+    drawButton(ctx, vrTerm, 'close', W-204, 24, 168, 114, '✕', C.btnRed, C.red, 54);
 
     const idx   = _termNPC?.currentChallenge || 0;
     const total = _termNPC?.challenges?.length || 5;
     const xp    = _termChallenge?.xp || 0;
     ctx.fillStyle = C.dim;
-    ctx.font = `13px ${C.font}`;
+    ctx.font = `39px ${C.font}`;
     ctx.textAlign = 'right';
-    ctx.fillText(`Challenge ${idx+1}/${total}  ·  +${xp} XP  ·  Attempts: ${_termAttempts}`, W-20, 34);
+    ctx.fillText(`Challenge ${idx+1}/${total}  ·  +${xp} XP  ·  Attempts: ${_termAttempts}`, W-60, 102);
 
     // ── challenge text ──
-    let cy = 72;
+    let cy = 216;
     ctx.fillStyle = 'rgba(0,245,255,0.05)';
-    ctx.fillRect(16, cy, W-32, 140);
-    ctx.strokeStyle = C.borderDim; ctx.lineWidth = 1;
-    ctx.strokeRect(16, cy, W-32, 140);
+    ctx.fillRect(48, cy, W-96, 420);
+    ctx.strokeStyle = C.borderDim; ctx.lineWidth = 3;
+    ctx.strokeRect(48, cy, W-96, 420);
 
     ctx.fillStyle = C.white;
-    ctx.font = `14px ${C.font}`;
+    ctx.font = `42px ${C.font}`;
     ctx.textAlign = 'left';
     const challengeLines = (_termChallenge?.challenge || '').split('\n');
     challengeLines.forEach((line, i) => {
-        ctx.fillText(line, 28, cy + 22 + i * 19);
+        ctx.fillText(line, 84, cy + 66 + i * 57);
     });
-    cy += 150;
+    cy += 438;
 
     // ── input area ──
     ctx.fillStyle = 'rgba(0,20,40,0.9)';
-    roundRect(ctx, 16, cy, W-32, 52, 6);
+    roundRect(ctx, 48, cy, W-96, 156, 18);
     ctx.fill();
     ctx.strokeStyle = _termFeedback === 'correct' ? C.green : _termFeedback === 'wrong' ? C.red : C.border;
-    ctx.lineWidth = 2; ctx.stroke();
+    ctx.lineWidth = 6; ctx.stroke();
 
     ctx.fillStyle = C.dim;
-    ctx.font = `14px ${C.font}`;
-    ctx.fillText('>', 30, cy + 33);
+    ctx.font = `51px ${C.font}`;
+    ctx.fillText('>', 90, cy + 99);
     ctx.fillStyle = C.green;
-    ctx.font = `bold 17px ${C.font}`;
-    ctx.fillText(_termInput + (_termInput.length < 40 ? '█' : ''), 50, cy + 33);
-    cy += 62;
+    ctx.font = `bold 51px ${C.font}`;
+    ctx.fillText(_termInput + '█', 150, cy + 99);
+    cy += 174;
 
     // ── feedback ──
     if (_termFeedback) {
         const fbColor = _termFeedback === 'correct' ? C.green : C.red;
         const fbIcon  = _termFeedback === 'correct' ? '✓' : '✗';
         ctx.fillStyle = _termFeedback === 'correct' ? 'rgba(0,80,30,0.6)' : 'rgba(80,0,20,0.6)';
-        roundRect(ctx, 16, cy, W-32, 36, 6);
+        roundRect(ctx, 48, cy, W-96, 108, 18);
         ctx.fill();
         ctx.fillStyle = fbColor;
-        ctx.font = `bold 14px ${C.font}`;
+        ctx.font = `bold 42px ${C.font}`;
         ctx.textAlign = 'left';
-        ctx.fillText(`${fbIcon}  ${_termFeedbackMsg}`, 28, cy + 24);
-        cy += 44;
+        ctx.fillText(`${fbIcon}  ${_termFeedbackMsg}`, 84, cy + 72);
+        cy += 126;
     }
 
     // ── hint ──
     if (_termShowHint && _termChallenge?.hint) {
         ctx.fillStyle = 'rgba(80,60,0,0.5)';
-        roundRect(ctx, 16, cy, W-32, 36, 6);
+        roundRect(ctx, 48, cy, W-96, 108, 18);
         ctx.fill();
         ctx.fillStyle = C.yellow;
-        ctx.font = `14px ${C.font}`;
+        ctx.font = `42px ${C.font}`;
         ctx.textAlign = 'left';
-        ctx.fillText('💡  ' + _termChallenge.hint, 28, cy + 24);
-        cy += 44;
+        ctx.fillText('💡  ' + _termChallenge.hint, 84, cy + 72);
+        cy += 126;
     }
 
     // ── action buttons ──
-    const bY = cy + 4;
-    drawButton(ctx, vrTerm, 'submit', 16,      bY, 260, 46, '▶  Run Code',  C.btnGreen, C.green);
-    drawButton(ctx, vrTerm, 'hint',   290,     bY, 200, 46, '💡 Hint',      C.btnBg,    C.yellow);
-    cy = bY + 54;
+    const bY = cy + 12;
+    drawButton(ctx, vrTerm, 'submit', 48,       bY, 780,  138, '▶  Run Code', C.btnGreen, C.green, 48);
+    drawButton(ctx, vrTerm, 'hint',   858,      bY, 600,  138, '💡 Hint',     C.btnBg,    C.yellow, 48);
+    cy = bY + 162;
 
     // ── keyboard ──
-    const kbStartY = cy + 4;
-    const keyH     = 52;
-    const keyGap   = 5;
+    const kbStartY = cy + 12;
+    const keyH     = 156;
+    const keyGap   = 15;
 
     KB_ROWS.forEach((row, ri) => {
         const rowY   = kbStartY + ri * (keyH + keyGap);
         const isLast = ri === KB_ROWS.length - 1;
 
         if (isLast) {
-            // bottom row: SPACE wide, backspace, clear
-            drawKey(ctx, vrTerm, 'SPACE', 16,     rowY, 400, keyH, 'SPACE');
-            drawKey(ctx, vrTerm, '⌫',    425,    rowY, 200, keyH, '⌫  Del');
-            drawKey(ctx, vrTerm, 'CLEAR', 634,    rowY, 250, keyH, '⊘ Clear');
+            drawKey(ctx, vrTerm, 'SPACE', 48,    rowY, 1200, keyH, 'SPACE');
+            drawKey(ctx, vrTerm, '⌫',    1278,  rowY, 600,  keyH, '⌫  Del');
+            drawKey(ctx, vrTerm, 'CLEAR', 1902,  rowY, 750,  keyH, '⊘ Clear');
         } else {
-            const keyW = Math.floor((W - 32 - keyGap * (row.length - 1)) / row.length);
+            const keyW = Math.floor((W - 96 - keyGap * (row.length - 1)) / row.length);
             row.forEach((key, ki) => {
-                const kx = 16 + ki * (keyW + keyGap);
+                const kx = 48 + ki * (keyW + keyGap);
                 drawKey(ctx, vrTerm, key, kx, rowY, keyW, keyH, key === ' ' ? '·' : key);
             });
         }
     });
 
+    // cursor dot
+    if (cursorX >= 0) drawCursor(ctx, cursorX, cursorY);
+
     tex.needsUpdate = true;
 }
 
-function drawButton(ctx, panel, id, x, y, w, h, label, bgColor, textColor) {
-    roundRect(ctx, x, y, w, h, 8);
+function drawButton(ctx, panel, id, x, y, w, h, label, bgColor, textColor, fontSize = 48) {
+    roundRect(ctx, x, y, w, h, 24);
     ctx.fillStyle = bgColor; ctx.fill();
-    ctx.strokeStyle = textColor; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = textColor; ctx.lineWidth = 6; ctx.stroke();
     ctx.fillStyle = textColor;
-    ctx.font = `bold 16px ${C.font}`;
+    ctx.font = `bold ${fontSize}px ${C.font}`;
     ctx.textAlign = 'center';
-    ctx.fillText(label, x + w/2, y + h/2 + 6);
+    ctx.fillText(label, x + w/2, y + h/2 + fontSize * 0.36);
     panel.buttons[id] = { x, y, w, h };
 }
 
 function drawKey(ctx, panel, id, x, y, w, h, label) {
-    roundRect(ctx, x, y, w, h, 6);
+    roundRect(ctx, x, y, w, h, 18);
     ctx.fillStyle = C.keyBg; ctx.fill();
-    ctx.strokeStyle = 'rgba(0,245,255,0.25)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,245,255,0.3)'; ctx.lineWidth = 3; ctx.stroke();
     ctx.fillStyle = C.white;
-    ctx.font = `bold ${label.length > 3 ? 13 : 18}px ${C.font}`;
+    const fs = label.length > 3 ? 39 : 54;
+    ctx.font = `bold ${fs}px ${C.font}`;
     ctx.textAlign = 'center';
-    ctx.fillText(label, x + w/2, y + h/2 + 6);
+    ctx.fillText(label, x + w/2, y + h/2 + fs * 0.36);
     panel.buttons['key_' + id] = { x, y, w, h };
 }
 
-// ── RAYCASTING ────────────────────────────────────────────────────────────────
-// Call this every frame with controller world position + direction.
-// Returns { panel: 'npc'|'term', button: string } or null.
+// ── CURSOR DOT ───────────────────────────────────────────────────────────────
+function drawCursor(ctx, px, py) {
+    // outer glow ring
+    ctx.beginPath();
+    ctx.arc(px, py, 28, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,245,255,0.4)';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    // inner solid dot
+    ctx.beginPath();
+    ctx.arc(px, py, 14, 0, Math.PI * 2);
+    ctx.fillStyle = '#00f5ff';
+    ctx.fill();
+}
 
-const _ray  = new THREE.Ray();
+// ── RAYCASTING ────────────────────────────────────────────────────────────────
+// Returns { panel, button, px, py } or null
+// px/py are canvas pixel coords of the hit point (for cursor drawing)
+
+const _ray   = new THREE.Ray();
 const _plane = new THREE.Plane();
-const _hit  = new THREE.Vector3();
-const _inv  = new THREE.Matrix4();
+const _hit   = new THREE.Vector3();
+const _inv   = new THREE.Matrix4();
 
 function hitTestPanel(panel, rayOrigin, rayDir) {
     if (!panel.mesh.visible) return null;
 
-    // Build a plane from the panel's world normal (forward = -Z in local)
+    panel.mesh.updateWorldMatrix(true, false);
     const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(panel.mesh.quaternion);
     _plane.setFromNormalAndCoplanarPoint(normal, panel.mesh.position);
 
     _ray.set(rayOrigin, rayDir);
     if (!_ray.intersectPlane(_plane, _hit)) return null;
 
-    // Convert hit to panel local space
+    // reject if hit is behind the ray
+    if (_hit.clone().sub(rayOrigin).dot(rayDir) < 0) return null;
+
     _inv.copy(panel.mesh.matrixWorld).invert();
     const local = _hit.clone().applyMatrix4(_inv);
 
-    // Convert local (-0.5..0.5 range) to canvas pixels
-    const px = (local.x + panel.worldW / 2) / panel.worldW * panel.canvasW;
-    const py = (1 - (local.y + panel.worldH / 2) / panel.worldH) * panel.canvasH;
+    // local coords are in [-worldW/2, worldW/2] range — convert to [0, canvasW]
+    const px = (local.x / panel.worldW + 0.5) * panel.canvasW;
+    const py = (0.5 - local.y / panel.worldH) * panel.canvasH;
 
+    // must be within canvas bounds
+    if (px < 0 || px > panel.canvasW || py < 0 || py > panel.canvasH) return null;
+
+    let hitButton = null;
     for (const [id, rect] of Object.entries(panel.buttons)) {
         if (px >= rect.x && px <= rect.x + rect.w &&
             py >= rect.y && py <= rect.y + rect.h) {
-            return id;
+            hitButton = id;
+            break;
         }
     }
-    return null;
+    return { button: hitButton, px, py };
 }
 
 export function vrRaycast(rayOrigin, rayDir) {
-    const npcHit  = hitTestPanel(npcPanel, rayOrigin, rayDir);
-    if (npcHit)  return { panel: 'npc',  button: npcHit };
-    const termHit = hitTestPanel(vrTerm,  rayOrigin, rayDir);
-    if (termHit) return { panel: 'term', button: termHit };
+    const npcResult  = hitTestPanel(npcPanel, rayOrigin, rayDir);
+    if (npcResult)  return { panel: 'npc',  button: npcResult.button, px: npcResult.px, py: npcResult.py };
+    const termResult = hitTestPanel(vrTerm,  rayOrigin, rayDir);
+    if (termResult) return { panel: 'term', button: termResult.button, px: termResult.px, py: termResult.py };
     return null;
+}
+
+// Called every frame from main.js to update cursor position on panels
+export function updateVRCursor(rayOrigin, rayDir) {
+    const npcResult  = hitTestPanel(npcPanel, rayOrigin, rayDir);
+    if (npcResult)  { drawNPCPanel(npcResult.px, npcResult.py); return; }
+    const termResult = hitTestPanel(vrTerm, rayOrigin, rayDir);
+    if (termResult) { drawVRTerminal(termResult.px, termResult.py); return; }
+    // no hit — redraw without cursor (only if previously had cursor to avoid thrashing)
 }
 
 // ── HANDLE KEY PRESS ──────────────────────────────────────────────────────────

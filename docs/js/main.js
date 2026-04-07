@@ -6,7 +6,7 @@ import {
     openVRTerminal, closeVRTerminal, vrTermOpen,
     setVRCallbacks, setVRFeedback, advanceVRChallenge,
     handleVRKey, getVRInput, incrementVRAttempts, showVRHint,
-    vrRaycast, laser1, laser2, setLasersVisible,
+    vrRaycast, updateVRCursor, laser1, laser2, setLasersVisible,
 } from './vrui.js';
 import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/webxr/VRButton.js';
 
@@ -705,13 +705,18 @@ function animate() {
     if (renderer.xr.isPresenting) {
         controller1.getWorldPosition(_c1WorldPos);
         controller1.getWorldQuaternion(_c1WorldQuat);
+        _c1WorldDir.set(0, 0, -1).applyQuaternion(_c1WorldQuat);
         laser1.position.copy(_c1WorldPos);
         laser1.quaternion.copy(_c1WorldQuat);
 
         controller2.getWorldPosition(_c2WorldPos);
         controller2.getWorldQuaternion(_c2WorldQuat);
+        _c2WorldDir.set(0, 0, -1).applyQuaternion(_c2WorldQuat);
         laser2.position.copy(_c2WorldPos);
         laser2.quaternion.copy(_c2WorldQuat);
+
+        // Update cursor dot on whichever panel controller 1 is pointing at
+        updateVRCursor(_c1WorldPos, _c1WorldDir);
     }
 
     if (!terminalOpen && !vrTermOpen) {
