@@ -46,26 +46,6 @@ Solve all challenges to **unlock abilities** and earn **XP**.
 
 ---
 
-## 🚀 Deploy to GitHub Pages
-
-```bash
-# 1. Fork or clone this repo
-git clone https://github.com/YOUR_USERNAME/codequest.git
-cd codequest
-
-# 2. Push to GitHub
-git add .
-git commit -m "Initial deploy"
-git push origin main
-
-# 3. Enable GitHub Pages
-# Go to: Settings → Pages → Source: Deploy from branch → Branch: main → / (root)
-# Your game will be live at: https://YOUR_USERNAME.github.io/codequest/
-```
-
-No build step. No npm install. It's all vanilla ES modules loaded from CDN.
-
----
 
 ## 🏗️ Project Structure
 
@@ -155,4 +135,4 @@ Open `js/questions.js` and add to the `QUESTIONS` array:
 
 ---
 
-*Built with ❤️ for students learning Python*
+*Built for students learning Python*
