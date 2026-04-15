@@ -1,186 +1,60 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>CodeQuest RPG 3D</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeQuest 3D — Learn Python on the Island</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-    <!-- ─────────────────────────────────────────────────────────────────
-         USERNAME SCREEN
-         Shows first — before the 3D world loads into view.
-         Player types their name and clicks Enter.
-         main.js validates + saves the name, then shows the lock overlay.
-    ──────────────────────────────────────────────────────────────────── -->
-    <div id="usernameScreen">
-        <div id="username-box">
-            <div id="username-logo">
-                <span class="logo-cq">CodeQuest</span>
-                <span class="logo-3d">3D</span>
-            </div>
-            <p id="username-subtitle">A Python Adventure</p>
-
-            <div id="username-form">
-                <label id="username-label">// Enter your name, coder:</label>
-                <div id="username-input-row">
-                    <span class="input-prompt">&gt;</span>
-                    <input
-                        id="usernameInput"
-                        type="text"
-                        maxlength="16"
-                        placeholder="YourName"
-                        autocomplete="off"
-                        spellcheck="false"
-                    />
-                </div>
-                <p id="usernameError"></p>
-                <button id="usernameBtn">▶ START ADVENTURE</button>
-            </div>
-
-            <p id="username-hint">Letters, numbers and _ only · Max 16 characters</p>
-        </div>
+<!-- ── USERNAME SCREEN ──────────────────────────────────────────────── -->
+<div id="usernameScreen">
+  <div class="username-card">
+    <div class="logo-art">
+      <span class="logo-cq">CQ</span>
+      <div class="logo-pulse"></div>
     </div>
+    <h1>CodeQuest 3D</h1>
+    <p class="tagline">Learn Python • Explore the Island • Battle Friends</p>
+    <input id="usernameInput" type="text" placeholder="Enter your username…" maxlength="16" autocomplete="off" />
+    <button id="usernameBtn">Enter World →</button>
+    <div id="usernameError"></div>
+  </div>
+</div>
 
-    <!-- ── STATUS PANEL — top left ──────────────────────────────────── -->
-    <div id="ui">
-        <div id="ui-body">
-            <div class="label">// STATUS</div>
-            <p id="lessonText">Explore the island. Walk up to a teacher!</p>
-        </div>
-        <div id="xp-section">
-            <div id="xp-header">
-                <span id="levelText">LVL 1</span>
-                <span id="xpText">0 / 100 XP</span>
-            </div>
-            <div id="xpBarTrack">
-                <div id="xpFill"></div>
-            </div>
-        </div>
-    </div>
+<!-- ── CANVAS ────────────────────────────────────────────────────────── -->
+<canvas id="gameCanvas"></canvas>
 
-    <!-- ── INVENTORY — bottom left ──────────────────────────────────── -->
-    <div id="inventory">
-        <div id="inventory-header">
-            <span class="dot"></span>
-            <h3>Abilities Unlocked</h3>
-        </div>
-        <div id="inventory-body">
-            <div class="label">// SKILLS</div>
-            <ul id="inventoryList"></ul>
-        </div>
-    </div>
+<!-- ── HUD ──────────────────────────────────────────────────────────── -->
+<div id="crosshair">+</div>
 
-    <!-- ── QUEST BUTTON + PANEL — bottom right ─────────────────────── -->
-    <button id="quest-btn" onclick="toggleQuests()">📋 QUESTS</button>
-    <div id="quests" class="quests-hidden">
-        <div id="quests-header">
-            <span class="dot"></span>
-            <h3>Quests</h3>
-            <button id="quests-close" onclick="toggleQuests()">✕</button>
-        </div>
-        <div id="quests-body">
-            <div class="label">// OBJECTIVES</div>
-            <ul id="questList"></ul>
-        </div>
-    </div>
-    <script>
-        function toggleQuests() {
-            const panel = document.getElementById('quests');
-            panel.classList.toggle('quests-hidden');
-            panel.classList.toggle('quests-visible');
-        }
-    </script>
-    <div id="controls">
-        <div class="ctrl-row"><span class="key">WASD</span> Move</div>
-        <div class="ctrl-row"><span class="key">Mouse</span> Look</div>
-        <div class="ctrl-row"><span class="key">SPC</span> Jump</div>
-        <div class="ctrl-row"><span class="key">E</span> Interact</div>
-        <div class="ctrl-row"><span class="key">ESC</span> Close terminal</div>
-    </div>
+<div id="ui">
+  <div id="xpBar">
+    <div id="xpFill"></div>
+    <span id="xpLabel">LVL 1 — 0 XP</span>
+  </div>
+</div>
 
-    <div id="crosshair">+</div>
+<!-- ── LESSON TOOLTIP ────────────────────────────────────────────────── -->
+<div id="lessonHUD"><span id="lessonText">Explore the island!</span></div>
 
-    <!-- ── CODE TERMINAL ─────────────────────────────────────────────── -->
-    <div id="terminal" class="terminal-hidden">
-        <div id="terminal-header">
-            <div class="terminal-dots">
-                <span class="tdot red"></span>
-                <span class="tdot yellow"></span>
-                <span class="tdot green"></span>
-            </div>
-            <span id="terminal-title">python_challenge.py</span>
-            <button id="terminal-close">✕</button>
-        </div>
-        <div id="terminal-npc">
-            <span id="terminal-npc-name">Teacher</span>
-            <span id="challenge-level"></span>
-            <p id="terminal-challenge">Challenge text goes here...</p>
-        </div>
-        <div id="terminal-editor">
-            <div class="editor-line-nums">
-                <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-            </div>
-            <textarea
-                id="codeInput"
-                spellcheck="false"
-                autocomplete="off"
-                autocorrect="off"
-                autocapitalize="off"
-                placeholder="# Type your Python code here..."></textarea>
-        </div>
-        <div id="terminal-feedback" class="feedback-hidden">
-            <span id="feedback-icon">✓</span>
-            <span id="feedback-text">Correct!</span>
-        </div>
-        <div id="terminal-hint" class="hint-hidden">
-            <span class="hint-label">// HINT:</span>
-            <span id="hint-text"></span>
-        </div>
-        <div id="terminal-actions">
-            <button id="btn-hint">💡 Hint</button>
-            <button id="btn-submit">▶ Run Code</button>
-        </div>
-        <div id="terminal-footer">
-            <span id="attempts-text">Attempts: 0</span>
-            <span id="terminal-esc">ESC to cancel</span>
-        </div>
-    </div>
+<!-- ── INVENTORY PANEL ───────────────────────────────────────────────── -->
+<button id="quest-btn" title="Quests & Inventory">📜</button>
+<div id="quests">
+  <h3>🎒 Abilities</h3>
+  <ul id="inventoryList"></ul>
+  <h3 style="margin-top:12px">📋 Quests</h3>
+  <ul id="questList"></ul>
+</div>
 
-    <!-- ── SUCCESS FLASH ─────────────────────────────────────────────── -->
-    <div id="successOverlay" class="success-hidden">
-        <div id="success-box">
-            <div id="success-icon">⚡</div>
-            <div id="success-title">ABILITY UNLOCKED</div>
-            <div id="success-ability"></div>
-        </div>
-    </div>
+<!-- ── VR BUTTON CONTAINER ───────────────────────────────────────────── -->
+<div id="vr-btn-container"></div>
 
-    <!-- ── LEVEL UP FLASH ─────────────────────────────────────────────── -->
-    <div id="levelUpOverlay" class="levelup-hidden">
-        <div id="levelup-box">
-            <div id="levelup-icon">⬆</div>
-            <div id="levelup-title">LEVEL UP!</div>
-            <div id="levelUpNumber">LEVEL 2</div>
-        </div>
-    </div>
+<!-- ── SAVE INDICATOR ───────────────────────────────────────────────── -->
+<div id="save-indicator">● SAVED</div>
 
-    <!-- Entry point — all other JS files are imported from here -->
-    <script>
-        window.addEventListener('error', e => {
-            const d = document.createElement('div');
-            d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#1a0000;border-bottom:2px solid #ff3131;color:#ff5555;padding:16px 20px;font-family:monospace;font-size:13px;z-index:99999;white-space:pre-wrap;';
-            d.innerText = '❌ ERROR: ' + e.message + '\nFile: ' + (e.filename||'').split('/').pop() + '  Line: ' + e.lineno;
-            document.body.appendChild(d);
-        });
-        window.addEventListener('unhandledrejection', e => {
-            const d = document.createElement('div');
-            d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#1a0000;border-bottom:2px solid #ff3131;color:#ff5555;padding:16px 20px;font-family:monospace;font-size:13px;z-index:99999;white-space:pre-wrap;';
-            d.innerText = '❌ MODULE ERROR: ' + (e.reason?.stack || e.reason?.message || String(e.reason));
-            document.body.appendChild(d);
-        });
-    </script>
-    <div id="vr-btn-container"></div>
-    <script type="module" src="js/main.js"></script>
+<!-- ── MODULES ───────────────────────────────────────────────────────── -->
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

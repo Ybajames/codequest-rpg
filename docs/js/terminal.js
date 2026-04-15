@@ -1,181 +1,190 @@
-// terminal.js — code terminal open/close/answer check
-import { renderer } from './state.js';
-import { unlockAbility } from './inventory.js';
-import { addXP } from './xp.js';
+// terminal.js — inline Python code challenge terminal
+// Used by NPC skill teachers on the island.
 import { playCorrect, playWrong, playUnlock } from './audio.js';
+import { unlockAbility }  from './inventory.js';
+import { addXP }          from './xp.js';
 
 export let terminalOpen = false;
+let overlayRef = null;
+
+// ── DOM ───────────────────────────────────────────────────────────────────────
+const overlay = document.createElement('div');
+overlay.id = 'terminalOverlay';
+overlay.innerHTML = `
+  <div id="terminalBox">
+    <div id="terminalHeader">
+      <span id="terminalTitle">Challenge</span>
+      <button id="terminalClose">✕ CLOSE</button>
+    </div>
+    <div id="challengeDesc"></div>
+    <div id="challengeHint"></div>
+    <textarea id="codeEditor" spellcheck="false" placeholder="# Write your Python answer here…"></textarea>
+    <div id="terminalFooter">
+      <button id="runBtn">▶ RUN</button>
+      <button id="hintBtn">💡 HINT</button>
+      <div id="progressPips"></div>
+    </div>
+    <div id="terminalOutput"></div>
+  </div>
+`;
+document.body.appendChild(overlay);
+
+const termTitle   = document.getElementById('terminalTitle');
+const descEl      = document.getElementById('challengeDesc');
+const hintEl      = document.getElementById('challengeHint');
+const editor      = document.getElementById('codeEditor');
+const runBtn      = document.getElementById('runBtn');
+const hintBtn     = document.getElementById('hintBtn');
+const pipsEl      = document.getElementById('progressPips');
+const outputEl    = document.getElementById('terminalOutput');
+const closeBtn    = document.getElementById('terminalClose');
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
 let currentNPC       = null;
-let currentChallenge = null;
-let attemptCount     = 0;
+let currentChallenge = 0;
+let solved           = [];
 
-// dom refs
-const terminalEl        = document.getElementById('terminal');
-const terminalTitle     = document.getElementById('terminal-title');
-const terminalNPCName   = document.getElementById('terminal-npc-name');
-const terminalChallenge = document.getElementById('terminal-challenge');
-const codeInput         = document.getElementById('codeInput');
-const feedbackEl        = document.getElementById('terminal-feedback');
-const feedbackIcon      = document.getElementById('feedback-icon');
-const feedbackText      = document.getElementById('feedback-text');
-const hintEl            = document.getElementById('terminal-hint');
-const hintText          = document.getElementById('hint-text');
-const attemptsText      = document.getElementById('attempts-text');
-const challengeLevel    = document.getElementById('challenge-level');
-const successOverlay    = document.getElementById('successOverlay');
-const successAbility    = document.getElementById('success-ability');
-const crosshair         = document.getElementById('crosshair');
+export function setOverlayRef(ref) { overlayRef = ref; }
 
-export let overlayRef = null;
-export function setOverlayRef(el) { overlayRef = el; }
-
-// open terminal with the NPC's current active challenge
+// ── OPEN / CLOSE ──────────────────────────────────────────────────────────────
 export function openTerminal(npcData) {
-    currentNPC = npcData;
-    terminalOpen = true;
-    attemptCount = 0;
-
-    // get the current challenge for this NPC
-    const idx = npcData.currentChallenge || 0;
-    currentChallenge = npcData.challenges[idx];
-
-    // load content
-    terminalNPCName.innerText   = npcData.name;
-    terminalChallenge.innerText = currentChallenge.challenge;
-    terminalTitle.innerText     = npcData.ability.toLowerCase() + '_challenge.py';
-    attemptsText.innerText      = 'Attempts: 0';
-
-    // show challenge level badge e.g. "Level 1 / 5 — 20 XP"
-    challengeLevel.innerText = `Challenge ${idx + 1} / ${npcData.challenges.length}  ·  +${currentChallenge.xp} XP`;
-
-    // reset ui
-    codeInput.value      = '';
-    feedbackEl.className = 'feedback-hidden';
-    hintEl.className     = 'hint-hidden';
-    hintText.innerText   = currentChallenge.hint;
-
-    terminalEl.className = 'terminal-visible';
-    crosshair.classList.add('hidden');
+    currentNPC       = npcData;
+    currentChallenge = npcData.currentChallenge || 0;
+    solved           = npcData.solved           || [];
+    terminalOpen     = true;
+    overlay.classList.add('open');
     document.exitPointerLock();
-    if (overlayRef) overlayRef.style.display = 'none';
-
-    setTimeout(() => codeInput.focus(), 350);
+    loadChallenge();
 }
 
 export function closeTerminal() {
     terminalOpen = false;
-    currentNPC   = null;
-    currentChallenge = null;
-    terminalEl.className = 'terminal-hidden';
-    crosshair.classList.remove('hidden');
-    setTimeout(() => renderer.domElement.requestPointerLock(), 100);
+    overlay.classList.remove('open');
+    setTimeout(() => document.querySelector('canvas')?.requestPointerLock(), 150);
 }
 
-// normalize before comparing — handles spacing differences
-function normalizeCode(str) {
-    return str.trim().toLowerCase()
-        .replace(/\s+/g, ' ')
-        .replace(/\s*=\s*/g, '=')
-        .replace(/\s*>\s*/g, '>')
-        .replace(/\s*<\s*/g, '<')
-        .replace(/\s*\(\s*/g, '(')
-        .replace(/\s*\)\s*/g, ')')
-        .replace(/\s*:\s*$/, ':');
-}
+closeBtn.addEventListener('click', closeTerminal);
+overlay.addEventListener('click', e => { if (e.target === overlay) closeTerminal(); });
 
-// Smart answer checking — handles pattern wildcards like {STRING} and {ANY_NAME}
-function checkAnswer(input, solutions) {
-    const n = normalizeCode(input);
-    return solutions.some(s => {
-        const ns = normalizeCode(s);
-        // If solution contains {STRING} wildcard — match any quoted string assignment
-        if (ns.includes('{string}')) {
-            const pattern = ns.replace('{string}', '(?:\'[^\']*\'|"[^"]*")');
-            return new RegExp('^' + pattern + '$').test(n);
-        }
-        // If solution contains {ANY} wildcard — match any value
-        if (ns.includes('{any}')) {
-            const pattern = ns.replace('{any}', '.+');
-            return new RegExp('^' + pattern + '$').test(n);
-        }
-        return ns === n;
+// ── LOAD CHALLENGE ────────────────────────────────────────────────────────────
+function loadChallenge() {
+    const ch = currentNPC.challenges[currentChallenge];
+    if (!ch) return;
+
+    termTitle.innerText      = `${currentNPC.name} — ${currentNPC.ability} (${currentChallenge + 1}/${currentNPC.challenges.length})`;
+    descEl.innerText         = ch.description;
+    editor.value             = ch.starter || '';
+    outputEl.innerText       = '';
+    outputEl.className       = '';
+    hintEl.style.display     = 'none';
+    hintEl.innerText         = '';
+
+    // Build progress pips
+    pipsEl.innerHTML = '';
+    currentNPC.challenges.forEach((_, i) => {
+        const pip = document.createElement('div');
+        pip.className = 'pip' + (solved.includes(i) ? ' done' : i === currentChallenge ? ' active' : '');
+        pipsEl.appendChild(pip);
     });
 }
 
-function submitAnswer() {
-    if (!currentNPC || !currentChallenge) return;
-    const input = codeInput.value;
-    if (!input.trim()) return;
+// ── HINT ──────────────────────────────────────────────────────────────────────
+hintBtn.addEventListener('click', () => {
+    const ch = currentNPC.challenges[currentChallenge];
+    if (!ch) return;
+    hintEl.innerText     = '💡 ' + ch.hint;
+    hintEl.style.display = 'block';
+    addXP(-5, 'hint used'); // small xp cost for using hint
+});
 
-    attemptCount++;
-    attemptsText.innerText = `Attempts: ${attemptCount}`;
+// ── RUN CODE (simulated Python evaluator) ────────────────────────────────────
+runBtn.addEventListener('click', runCode);
+editor.addEventListener('keydown', e => {
+    // Tab inserts spaces
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        const s = editor.selectionStart, en = editor.selectionEnd;
+        editor.value = editor.value.slice(0,s) + '    ' + editor.value.slice(en);
+        editor.selectionStart = editor.selectionEnd = s + 4;
+    }
+    if (e.key === 'Enter' && e.ctrlKey) runCode();
+});
 
-    if (checkAnswer(input, currentChallenge.solutions)) {
-        // correct
-        feedbackEl.className   = 'feedback-success';
-        feedbackIcon.innerText = '✓';
-        feedbackText.innerText = 'Correct! Great work!';
+function runCode() {
+    const ch   = currentNPC.challenges[currentChallenge];
+    const code = editor.value.trim();
 
-        playCorrect();
-        setTimeout(() => playUnlock(), 700);
+    if (!code) {
+        showOutput('Write some code first!', true);
+        return;
+    }
 
-        // award XP for this specific challenge
-        addXP(currentChallenge.xp, 'Challenge Complete!');
-
-        // mark this challenge done + advance to next
-        const idx = currentNPC.currentChallenge || 0;
-        currentNPC.completed.push(idx);
-        const nextIdx = idx + 1;
-
-        if (nextIdx >= currentNPC.challenges.length) {
-            // all challenges for this NPC done — unlock ability
-            unlockAbility(currentNPC.ability);
-            const abilityName = currentNPC.ability;
-            setTimeout(() => {
-                closeTerminal();
-                showSuccessFlash(abilityName);
-            }, 800);
+    // Validate answer using checker function
+    try {
+        const result = ch.check(code);
+        if (result === true || result === 'pass') {
+            onCorrect(ch);
         } else {
-            // more challenges left — advance and show next after delay
-            currentNPC.currentChallenge = nextIdx;
-            feedbackText.innerText = `Correct! Challenge ${nextIdx + 1} unlocked! 🔓`;
-            setTimeout(() => {
-                openTerminal(currentNPC);
-            }, 1200);
+            const msg = typeof result === 'string' ? result : '❌ Not quite. Check your logic and try again.';
+            showOutput(msg, true);
+            playWrong();
         }
-
-    } else {
-        // wrong
-        feedbackEl.className   = 'feedback-error';
-        feedbackIcon.innerText = '✗';
+    } catch (e) {
+        showOutput('⚠️ Error checking your code: ' + e.message, true);
         playWrong();
-
-        if (attemptCount === 1) {
-            feedbackText.innerText = "Not quite. Check your syntax and try again.";
-        } else if (attemptCount === 2) {
-            feedbackText.innerText = "Still not right — try the Hint button!";
-            hintEl.className = '';
-        } else {
-            feedbackText.innerText = "Keep going! The hint shows the exact answer.";
-            hintEl.className = '';
-        }
-
-        codeInput.classList.add('shake');
-        setTimeout(() => codeInput.classList.remove('shake'), 400);
-        codeInput.focus();
     }
 }
 
-function showSuccessFlash(abilityName) {
-    successAbility.innerText = abilityName;
-    successOverlay.className = 'success-visible';
-    setTimeout(() => { successOverlay.className = 'success-hidden'; }, 2500);
+function onCorrect(ch) {
+    playCorrect();
+    showOutput('✅ Correct! ' + (ch.successMsg || 'Well done!'), false);
+    addXP(30, 'challenge solved');
+
+    if (!solved.includes(currentChallenge)) {
+        solved.push(currentChallenge);
+        currentNPC.solved = solved;
+    }
+
+    // Update pip
+    const pips = pipsEl.querySelectorAll('.pip');
+    if (pips[currentChallenge]) {
+        pips[currentChallenge].className = 'pip done';
+    }
+
+    // Check if all challenges done → unlock ability
+    if (solved.length >= currentNPC.challenges.length) {
+        setTimeout(() => {
+            playUnlock();
+            flashUnlock(currentNPC.ability);
+            unlockAbility(currentNPC.ability);
+            addXP(100, 'ability unlocked');
+            closeTerminal();
+        }, 1200);
+    } else {
+        // Advance to next unsolved challenge
+        setTimeout(() => {
+            let next = (currentChallenge + 1) % currentNPC.challenges.length;
+            while (solved.includes(next) && solved.length < currentNPC.challenges.length) {
+                next = (next + 1) % currentNPC.challenges.length;
+            }
+            currentChallenge = next;
+            currentNPC.currentChallenge = next;
+            loadChallenge();
+        }, 1500);
+    }
 }
 
-// button events
-document.getElementById('btn-submit').addEventListener('click', submitAnswer);
-document.getElementById('btn-hint').addEventListener('click', () => { hintEl.className = ''; codeInput.focus(); });
-document.getElementById('terminal-close').addEventListener('click', closeTerminal);
-codeInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitAnswer(); }
-});
+function showOutput(msg, isError) {
+    outputEl.innerText = msg;
+    outputEl.className = isError ? 'error' : '';
+}
+
+// ── UNLOCK FLASH ──────────────────────────────────────────────────────────────
+function flashUnlock(abilityName) {
+    const flash = document.getElementById('unlockFlash');
+    if (!flash) return;
+    flash.querySelector('.unlock-title').innerText = `⚡ ${abilityName.toUpperCase()} UNLOCKED!`;
+    flash.querySelector('.unlock-sub').innerText   = 'New Python skill added to your inventory!';
+    flash.classList.add('show');
+    setTimeout(() => flash.classList.remove('show'), 2500);
+}

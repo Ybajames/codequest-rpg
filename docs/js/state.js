@@ -1,77 +1,56 @@
-// state.js — shared scene, camera, renderer, materials, constants
+// state.js — shared Three.js state, materials, constants
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
 
-// renderer
-export const renderer = new THREE.WebGLRenderer({ antialias: true });
+// ── RENDERER ──────────────────────────────────────────────────────────────────
+export const renderer = new THREE.WebGLRenderer({
+    canvas: document.getElementById('gameCanvas'),
+    antialias: true,
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
-renderer.xr.enabled = true;
-document.body.appendChild(renderer.domElement);
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.xr.enabled        = true;
 
-// scene
+window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+});
+
+// ── SCENE ─────────────────────────────────────────────────────────────────────
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);
 
-// camera
+// ── CAMERA ────────────────────────────────────────────────────────────────────
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 600);
+camera.position.set(0, 1.6, 0);
 
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+// ── ISLAND CONSTANTS ──────────────────────────────────────────────────────────
+export const ISLAND_RADIUS = 55;
+export const BEACH_WIDTH   = 8;
+export const OCEAN_SIZE    = 800;
 
-// world size constants
-export const ISLAND_RADIUS   = 55;
-export const BOUNDARY_RADIUS = 48;
-export const OCEAN_SIZE      = 800;
-export const BEACH_WIDTH     = 10;
-
-// all materials in one place
+// ── MATERIALS ─────────────────────────────────────────────────────────────────
 export const MAT = {
-    grass:      new THREE.MeshLambertMaterial({ color: 0x4caf50 }),
-    grassAlt:   new THREE.MeshLambertMaterial({ color: 0x43a047 }),
-    path:       new THREE.MeshLambertMaterial({ color: 0xd2b48c }),
-    wood:       new THREE.MeshLambertMaterial({ color: 0x6d4c41 }),
-    leaves:     new THREE.MeshLambertMaterial({ color: 0x2e7d32 }),
-    leavesAlt:  new THREE.MeshLambertMaterial({ color: 0x388e3c }),
-    stone:      new THREE.MeshLambertMaterial({ color: 0x90a4ae }),
-    sand:       new THREE.MeshLambertMaterial({ color: 0xf5deb3 }),
-    sandAlt:    new THREE.MeshLambertMaterial({ color: 0xfae0a0 }),
-    ocean:      new THREE.MeshLambertMaterial({ color: 0x1a6fa8, transparent: true, opacity: 0.88 }),
-    shallows:   new THREE.MeshLambertMaterial({ color: 0x4db6e8, transparent: true, opacity: 0.75 }),
-    water:      new THREE.MeshLambertMaterial({ color: 0x1565c0, transparent: true, opacity: 0.8 }),
-    sunSphere:  new THREE.MeshBasicMaterial({ color: 0xffdd44 }),
-    cloud:      new THREE.MeshLambertMaterial({ color: 0xffffff }),
-    bird:       new THREE.MeshBasicMaterial({ color: 0x222222 }),
-    playerBody: new THREE.MeshLambertMaterial({ color: 0x1565c0 }),
-    playerHead: new THREE.MeshLambertMaterial({ color: 0xffcc99 }),
-    playerArm:  new THREE.MeshLambertMaterial({ color: 0x1565c0 }),
-    playerLeg:  new THREE.MeshLambertMaterial({ color: 0x263238 }),
-    playerEye:  new THREE.MeshLambertMaterial({ color: 0x111111 }),
-    playerShoe: new THREE.MeshLambertMaterial({ color: 0x212121 }),
-    bugBody:    new THREE.MeshLambertMaterial({ color: 0xb71c1c }),
-    bugEye:     new THREE.MeshLambertMaterial({ color: 0xff1744 }),
-    bugLeg:     new THREE.MeshLambertMaterial({ color: 0x880e4f }),
+    ocean:     new THREE.MeshLambertMaterial({ color: 0x0277bd, transparent: true, opacity: 0.85 }),
+    shallows:  new THREE.MeshLambertMaterial({ color: 0x29b6f6, transparent: true, opacity: 0.6 }),
+    path:      new THREE.MeshLambertMaterial({ color: 0x9e9e9e }),
+    cloud:     new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 }),
+    bird:      new THREE.MeshLambertMaterial({ color: 0x212121 }),
+    sunSphere: new THREE.MeshBasicMaterial({ color: 0xffdd44 }),
 };
 
-// shared mesh helpers
+// ── HELPERS ───────────────────────────────────────────────────────────────────
 export function box(w, h, d, mat) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    m.castShadow = m.receiveShadow = true;
-    return m;
+    return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+}
+export function addTo(parent, mesh, x, y, z) {
+    mesh.position.set(x, y, z);
+    parent.add(mesh);
+    return mesh;
 }
 
-export function addTo(parent, child, x = 0, y = 0, z = 0) {
-    child.position.set(x, y, z);
-    parent.add(child);
-    return child;
-}
-
-// player username — set by username screen, readable anywhere
-export const playerData = { username: 'Player' };
+// ── PLAYER DATA ───────────────────────────────────────────────────────────────
+export const playerData = { username: 'Explorer' };

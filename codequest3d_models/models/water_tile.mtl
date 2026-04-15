@@ -1,8 +1,0 @@
-# CodeQuest3D — water_tile.mtl
-
-newmtl water
-Kd 0.0824 0.3961 0.7529
-Ka 0.0247 0.1188 0.2259
-Ks 0.1 0.1 0.1
-Ns 32
-

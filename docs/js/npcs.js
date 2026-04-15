@@ -1,324 +1,306 @@
-// npcs.js — NPC challenge data + character builder
+// npcs.js — Python skill teacher NPCs scattered around the island
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
-import { scene, MAT, box, addTo } from './state.js';
+import { scene, box, addTo } from './state.js';
 import { addCollider } from './collision.js';
 
-// Each NPC has 5 challenges — easy to hard, more XP each time
-// xp field on each challenge controls the reward
-export const NPC_DATA = [
+// ── NPC DEFINITIONS ───────────────────────────────────────────────────────────
+const NPC_CONFIGS = [
     {
-        name: "VARIABLES TEACHER",
-        color: 0xe74c3c,
+        name:    '🟦 Vera the Variable',
+        ability: 'Variable',
+        pos:     { x: -18, z: -12 },
+        color:   0x42a5f5,
+        lesson:  'Variables store data.\nx = 5\nname = "Alice"',
         challenges: [
             {
-                level: 1,
-                challenge: "Store the number 10 in a variable called score.\n\nExample:  age = 25",
-                hint: "Type:  score = 10",
-                solutions: ["score=10", "score = 10"],
-                xp: 20,
+                description: 'Create a variable called "score" and set it to 42.\nThen print it.',
+                starter:     '# Create your variable below\n',
+                hint:        'score = 42\nprint(score)',
+                check: code => {
+                    const hasVar   = /score\s*=\s*42/.test(code);
+                    const hasPrint = /print\s*\(\s*score\s*\)/.test(code);
+                    if (!hasVar)   return 'Missing: score = 42';
+                    if (!hasPrint) return 'Missing: print(score)';
+                    return true;
+                },
+                successMsg: 'Variables store values — like a labeled box!'
             },
             {
-                level: 2,
-                challenge: "Store your name as a string in a variable called name.\n\nStrings use quotes: name = 'Alice'",
-                hint: "Type:  name = 'Alice'  (any name works!)",
-                solutions: ["name={string}", "name = {string}"],
-                xp: 25,
+                description: 'Create TWO variables: "first_name" (your name as a string)\nand "age" (any number). Print both.',
+                starter:     '# Two variables!\n',
+                hint:        'first_name = "Ada"\nage = 20\nprint(first_name)\nprint(age)',
+                check: code => {
+                    if (!/first_name\s*=/.test(code))   return 'Missing: first_name = ...';
+                    if (!/age\s*=\s*\d+/.test(code))    return 'Missing: age = (a number)';
+                    if ((code.match(/print/g)||[]).length < 2) return 'Print both variables!';
+                    return true;
+                },
+                successMsg: 'Now you can store any data in a variable!'
             },
             {
-                level: 3,
-                challenge: "Create two variables:\n  x = 5\n  y = 3\n\nThen store their sum in a variable called total.",
-                hint: "Type:  total = x + y",
-                solutions: ["total=x+y", "total = x + y", "total=x + y", "total = x+y"],
-                xp: 35,
-            },
-            {
-                level: 4,
-                challenge: "Swap two variables.\n\nIf a = 1 and b = 2,\nstore the value of b in a.",
-                hint: "Type:  a = b",
-                solutions: ["a=b", "a = b"],
-                xp: 40,
-            },
-            {
-                level: 5,
-                challenge: "Create a variable called isActive and set it to True.\n\nBooleans in Python are True or False (capital T or F).",
-                hint: "Type:  isActive = True",
-                solutions: ["isactive=true", "isactive = true", "isActive=True", "isActive = True"],
-                xp: 50,
+                description: 'Swap two variables without losing their values.\na = 10\nb = 20\n# After your code, a should be 20, b should be 10\nprint(a, b)',
+                starter:     'a = 10\nb = 20\n# swap them here\n\nprint(a, b)',
+                hint:        'a, b = b, a   # Python tuple swap!',
+                check: code => {
+                    if (!(/a\s*,\s*b\s*=\s*b\s*,\s*a/.test(code) || /temp/.test(code)))
+                        return 'Try using a temp variable, or Python\'s tuple swap: a, b = b, a';
+                    if (!/print\s*\(\s*a\s*,\s*b\s*\)/.test(code))
+                        return 'Add: print(a, b)';
+                    return true;
+                },
+                successMsg: 'Python tuple swap is elegant and fast!'
             },
         ],
-        lesson: "VARIABLES\nStore data with a name.\nPress E to take the challenge!",
-        ability: "Variable",
     },
     {
-        name: "CONSTANTS TEACHER",
-        color: 0xf39c12,
+        name:    '🟩 Pip the Printer',
+        ability: 'Print',
+        pos:     { x: 20, z: -14 },
+        color:   0x66bb6a,
+        lesson:  'print() shows output.\nprint("Hello!")\nprint(2 + 3)',
         challenges: [
             {
-                level: 1,
-                challenge: "Create a constant called PI and set it to 3.14\n\nIn Python, constants use UPPERCASE names.",
-                hint: "Type:  PI = 3.14",
-                solutions: ["pi=3.14","pi = 3.14","PI=3.14","PI = 3.14"],
-                xp: 20,
+                description: 'Print exactly: Hello, World!',
+                starter:     '',
+                hint:        'print("Hello, World!")',
+                check: code => {
+                    if (!code.includes('print'))     return 'Use the print() function!';
+                    if (!code.includes('Hello, World!')) return 'Print exactly: Hello, World!  (check punctuation)';
+                    return true;
+                },
+                successMsg: 'The classic first program!'
             },
             {
-                level: 2,
-                challenge: "Create a constant called MAX_SCORE and set it to 100.",
-                hint: "Type:  MAX_SCORE = 100",
-                solutions: ["max_score=100","max_score = 100","MAX_SCORE=100","MAX_SCORE = 100"],
-                xp: 25,
-            },
-            {
-                level: 3,
-                challenge: "Create a constant called GRAVITY and set it to 9.8",
-                hint: "Type:  GRAVITY = 9.8",
-                solutions: ["gravity=9.8","gravity = 9.8","GRAVITY=9.8","GRAVITY = 9.8"],
-                xp: 35,
-            },
-            {
-                level: 4,
-                challenge: "Create a constant called APP_NAME and set it to 'CodeQuest'",
-                hint: "Type:  APP_NAME = 'CodeQuest'",
-                solutions: ["app_name={string}", "app_name = {string}", "APP_NAME={string}", "APP_NAME = {string}"],
-                xp: 40,
-            },
-            {
-                level: 5,
-                challenge: "Create two constants:\n  WIDTH = 800\n  HEIGHT = 600",
-                hint: "Type both on separate lines",
-                solutions: ["width=800","width = 800","WIDTH=800","WIDTH = 800"],
-                xp: 50,
+                description: 'Use an f-string to print:\n"My name is X and I am Y years old"\n(replace X and Y with actual variable values)',
+                starter:     'name = "Alex"\nage = 15\n# print with f-string\n',
+                hint:        'print(f"My name is {name} and I am {age} years old")',
+                check: code => {
+                    if (!/f["']/.test(code))        return 'Use an f-string: f"..."';
+                    if (!/{name}/.test(code))        return 'Include {name} in your f-string';
+                    if (!/{age}/.test(code))         return 'Include {age} in your f-string';
+                    return true;
+                },
+                successMsg: 'F-strings make formatting easy and readable!'
             },
         ],
-        lesson: "CONSTANTS\nValues that never change.\nPress E to take the challenge!",
-        ability: "Constant",
     },
     {
-        name: "PRINT TEACHER",
-        color: 0x9b59b6,
+        name:    '🟠 Lola the Logic',
+        ability: 'Logic',
+        pos:     { x: -20, z: 16 },
+        color:   0xffa726,
+        lesson:  'if / elif / else\ncontrol the flow.\nif x > 0:\n    print("positive")',
         challenges: [
             {
-                level: 1,
-                challenge: "Print the message: Hello World\n\nUse the print() function.",
-                hint: "Type:  print('Hello World')",
-                solutions: ["print('hello world')","print(\"hello world\")","print('Hello World')","print(\"Hello World\")"],
-                xp: 20,
+                description: 'Write code that:\n- Creates a variable "temp" = 35\n- If temp > 30, print "Hot!"\n- Otherwise print "Cool"',
+                starter:     'temp = 35\n# your if/else here\n',
+                hint:        'if temp > 30:\n    print("Hot!")\nelse:\n    print("Cool")',
+                check: code => {
+                    if (!/temp\s*=\s*35/.test(code))  return 'Keep: temp = 35';
+                    if (!/if\s+temp/.test(code))       return 'Use an if statement with temp';
+                    if (!/print/.test(code))           return 'Add a print statement';
+                    return true;
+                },
+                successMsg: 'if/else lets your code make decisions!'
             },
             {
-                level: 2,
-                challenge: "Print your name using a variable.\n\nname = 'Alex'\nprint(name)",
-                hint: "Type:  print(name)",
-                solutions: ["print(name)"],
-                xp: 25,
+                description: 'Use elif to grade a score:\n- score >= 90 → print "A"\n- score >= 70 → print "B"\n- else → print "C"',
+                starter:     'score = 85\n# grade the score\n',
+                hint:        'if score >= 90:\n    print("A")\nelif score >= 70:\n    print("B")\nelse:\n    print("C")',
+                check: code => {
+                    if (!code.includes('elif'))       return 'Use elif for the second condition!';
+                    if ((code.match(/print/g)||[]).length < 1) return 'Add print statements';
+                    return true;
+                },
+                successMsg: 'elif chains let you handle multiple cases!'
             },
             {
-                level: 3,
-                challenge: "Print two words together using +\n\nExample: print('Hello' + ' World')",
-                hint: "Type:  print('Hello' + ' World')",
-                solutions: ["print('hello'+'world')","print('hello' + 'world')","print('Hello'+'World')","print('Hello' + ' World')","print('hello'+' world')"],
-                xp: 35,
-            },
-            {
-                level: 4,
-                challenge: "Print a number alongside text using a comma.\n\nExample: print('Score:', 10)",
-                hint: "Type:  print('Score:', 10)",
-                solutions: ["print('score:',10)","print('score:', 10)","print('Score:',10)","print('Score:', 10)"],
-                xp: 40,
-            },
-            {
-                level: 5,
-                challenge: "Use an f-string to print a variable inside text.\n\nname = 'Alex'\nprint(f'Hello {name}')",
-                hint: "Type:  print(f'Hello {name}')",
-                solutions: ["print(f'hello {name}')","print(f'Hello {name}')","print(f\"hello {name}\")","print(f\"Hello {name}\")"],
-                xp: 50,
+                description: 'Use "and" / "or":\nIf a number is between 1 and 10 (inclusive), print "In range"\nOtherwise print "Out of range"\n(test with n = 7)',
+                starter:     'n = 7\n# your code\n',
+                hint:        'if n >= 1 and n <= 10:\n    print("In range")\nelse:\n    print("Out of range")',
+                check: code => {
+                    if (!/and|or/.test(code))        return 'Use "and" or "or" operator!';
+                    if (!/print/.test(code))         return 'Add print statement';
+                    return true;
+                },
+                successMsg: 'Logical operators combine conditions!'
             },
         ],
-        lesson: "PRINT\nShow output to the user.\nPress E to take the challenge!",
-        ability: "Print",
     },
     {
-        name: "INPUT TEACHER",
-        color: 0x1abc9c,
+        name:    '🔴 Leon the Loop',
+        ability: 'Loop',
+        pos:     { x: 22, z: 18 },
+        color:   0xef5350,
+        lesson:  'for i in range(5):\n    print(i)\nLoops repeat code!',
         challenges: [
             {
-                level: 1,
-                challenge: "Ask the user for their name and store it in a variable called name.",
-                hint: "Type:  name = input()",
-                solutions: ["name=input()","name = input()",'name=input("")','name = input("")'],
-                xp: 20,
+                description: 'Use a for loop to print numbers 1 through 5\n(one per line)',
+                starter:     '# Use range(1, 6)\n',
+                hint:        'for i in range(1, 6):\n    print(i)',
+                check: code => {
+                    if (!/for\s+\w+\s+in\s+range/.test(code)) return 'Use a for loop with range()!';
+                    if (!/print/.test(code))                   return 'Add print inside the loop';
+                    return true;
+                },
+                successMsg: 'range(1, 6) gives 1, 2, 3, 4, 5!'
             },
             {
-                level: 2,
-                challenge: "Ask the user for their age with a prompt message.\n\nExample: age = input('How old are you? ')",
-                hint: "Type:  age = input('How old are you? ')",
-                solutions: ["age=input('how old are you?')","age = input('how old are you?')",
-                            "age=input('How old are you? ')","age = input('How old are you? ')"],
-                xp: 25,
+                description: 'Use a loop to calculate the sum of 1 to 10.\nPrint the final total.',
+                starter:     'total = 0\n# loop from 1 to 10\n\nprint(total)',
+                hint:        'total = 0\nfor i in range(1, 11):\n    total += i\nprint(total)',
+                check: code => {
+                    if (!/total\s*=\s*0/.test(code))           return 'Start with: total = 0';
+                    if (!/total\s*\+=/.test(code))             return 'Use total += i inside the loop';
+                    if (!/print\s*\(\s*total\s*\)/.test(code)) return 'Print total at the end';
+                    return true;
+                },
+                successMsg: 'Accumulator pattern: total += i in a loop!'
             },
             {
-                level: 3,
-                challenge: "Get a number from the user and convert it to an integer.\n\nExample: num = int(input())",
-                hint: "Type:  num = int(input())",
-                solutions: ["num=int(input())","num = int(input())"],
-                xp: 35,
-            },
-            {
-                level: 4,
-                challenge: "Ask the user for two numbers and store them in x and y.",
-                hint: "Type:  x = input()  then  y = input()",
-                solutions: ["x=input()","x = input()"],
-                xp: 40,
-            },
-            {
-                level: 5,
-                challenge: "Get a number from the user and convert it to a float.\n\nExample: price = float(input())",
-                hint: "Type:  price = float(input())",
-                solutions: ["price=float(input())","price = float(input())"],
-                xp: 50,
+                description: 'Use a while loop to count DOWN from 5 to 1,\nprinting each number. Then print "Blastoff!"',
+                starter:     'count = 5\n# while loop countdown\n',
+                hint:        'count = 5\nwhile count >= 1:\n    print(count)\n    count -= 1\nprint("Blastoff!")',
+                check: code => {
+                    if (!/while/.test(code))           return 'Use a while loop!';
+                    if (!/count\s*-=\s*1/.test(code))  return 'Decrease count with: count -= 1';
+                    if (!code.includes('Blastoff'))    return 'Print "Blastoff!" after the loop';
+                    return true;
+                },
+                successMsg: 'while loops run until a condition is False!'
             },
         ],
-        lesson: "INPUT\nRead data from the user.\nPress E to take the challenge!",
-        ability: "Input",
     },
     {
-        name: "LOGIC TEACHER",
-        color: 0xe67e22,
+        name:    '🟣 Faye the Function',
+        ability: 'Function',
+        pos:     { x: -22, z: -20 },
+        color:   0xab47bc,
+        lesson:  'def greet(name):\n    return "Hi " + name\n\nFunctions are reusable!',
         challenges: [
             {
-                level: 1,
-                challenge: "Write an if statement that checks if score is greater than 5.\n\nDon't forget the colon!",
-                hint: "Type:  if score > 5:",
-                solutions: ["if score > 5:","if score>5:"],
-                xp: 20,
+                description: 'Define a function called "square" that takes\na number n and returns n * n.\nThen print square(5).',
+                starter:     '# def your function\n\n',
+                hint:        'def square(n):\n    return n * n\n\nprint(square(5))',
+                check: code => {
+                    if (!/def\s+square\s*\(\s*n\s*\)/.test(code)) return 'Define: def square(n):';
+                    if (!/return\s+n\s*\*\s*n/.test(code))        return 'Return n * n';
+                    if (!/print\s*\(\s*square\s*\(\s*5\s*\)\s*\)/.test(code)) return 'Print: print(square(5))';
+                    return true;
+                },
+                successMsg: 'Functions reuse logic — write once, call many times!'
             },
             {
-                level: 2,
-                challenge: "Write an if statement that checks if a number equals 10.\n\nUse == to check equality.",
-                hint: "Type:  if number == 10:",
-                solutions: ["if number == 10:","if number==10:"],
-                xp: 25,
-            },
-            {
-                level: 3,
-                challenge: "Write an if/else statement.\n\nif score > 5:\n    print('Win')\nelse:",
-                hint: "Type:  else:",
-                solutions: ["else:"],
-                xp: 35,
-            },
-            {
-                level: 4,
-                challenge: "Check two conditions at once using 'and'.\n\nExample: if x > 0 and x < 10:",
-                hint: "Type:  if x > 0 and x < 10:",
-                solutions: ["if x > 0 and x < 10:","if x>0 and x<10:"],
-                xp: 40,
-            },
-            {
-                level: 5,
-                challenge: "Write an elif statement.\n\nif score > 10:\n    pass\nelif score == 5:",
-                hint: "Type:  elif score == 5:",
-                solutions: ["elif score == 5:","elif score==5:"],
-                xp: 50,
+                description: 'Write a function "greet" that takes a "name"\nparameter and returns "Hello, {name}!"\nCall it with your own name and print the result.',
+                starter:     '# define greet(name)\n',
+                hint:        'def greet(name):\n    return f"Hello, {name}!"\n\nprint(greet("Ada"))',
+                check: code => {
+                    if (!/def\s+greet\s*\(\s*name\s*\)/.test(code)) return 'Define: def greet(name):';
+                    if (!/return/.test(code))                        return 'Use return in the function!';
+                    if (!/print\s*\(\s*greet/.test(code))            return 'Call and print: print(greet(...))';
+                    return true;
+                },
+                successMsg: 'Parameters let functions work with any input!'
             },
         ],
-        lesson: "IF STATEMENTS\nMake decisions in code.\nPress E to take the challenge!",
-        ability: "Logic",
     },
     {
-        name: "LOOPS TEACHER",
-        color: 0x3498db,
+        name:    '🔵 Iris the Input',
+        ability: 'Input',
+        pos:     { x: 16, z: -22 },
+        color:   0x26c6da,
+        lesson:  'name = input("Enter name: ")\nTakes input from the user!',
         challenges: [
             {
-                level: 1,
-                challenge: "Write a for loop that runs exactly 5 times.\n\nUse range() to control how many times.",
-                hint: "Type:  for i in range(5):",
-                solutions: ["for i in range(5):","for i in range( 5 ):"],
-                xp: 20,
+                description: 'Write code that:\n1. Asks for a name using input()\n2. Prints "Nice to meet you, {name}!"',
+                starter:     '# Ask for a name\n',
+                hint:        'name = input("Enter your name: ")\nprint(f"Nice to meet you, {name}!")',
+                check: code => {
+                    if (!/input\s*\(/.test(code))  return 'Use the input() function!';
+                    if (!/print/.test(code))        return 'Print a greeting!';
+                    return true;
+                },
+                successMsg: 'input() makes your programs interactive!'
             },
             {
-                level: 2,
-                challenge: "Write a for loop that counts from 1 to 10.\n\nrange(start, stop) — stop is not included!",
-                hint: "Type:  for i in range(1, 11):",
-                solutions: ["for i in range(1, 11):","for i in range(1,11):"],
-                xp: 25,
-            },
-            {
-                level: 3,
-                challenge: "Write a while loop that runs while x is less than 5.\n\nwhile condition:",
-                hint: "Type:  while x < 5:",
-                solutions: ["while x < 5:","while x<5:"],
-                xp: 35,
-            },
-            {
-                level: 4,
-                challenge: "Write a for loop that loops over a list called items.\n\nfor item in list:",
-                hint: "Type:  for item in items:",
-                solutions: ["for item in items:"],
-                xp: 40,
-            },
-            {
-                level: 5,
-                challenge: "Write a for loop with range that counts in steps of 2.\n\nrange(start, stop, step)",
-                hint: "Type:  for i in range(0, 10, 2):",
-                solutions: ["for i in range(0, 10, 2):","for i in range(0,10,2):"],
-                xp: 50,
+                description: 'Ask for a number, convert it to int,\nthen print whether it is even or odd.\n(Hint: use num % 2)',
+                starter:     '# get a number from user\n# convert with int()\n# check even/odd\n',
+                hint:        'num = int(input("Enter a number: "))\nif num % 2 == 0:\n    print("Even")\nelse:\n    print("Odd")',
+                check: code => {
+                    if (!/int\s*\(\s*input/.test(code))  return 'Convert with: int(input(...))';
+                    if (!/\%\s*2/.test(code))            return 'Use % 2 to check even/odd';
+                    if (!/print/.test(code))             return 'Print the result';
+                    return true;
+                },
+                successMsg: 'Always convert input() when you need a number!'
             },
         ],
-        lesson: "LOOPS\nRepeat actions easily.\nPress E to take the challenge!",
-        ability: "Loop",
     },
 ];
 
-// build one NPC character mesh
-export function makeNPC(x, z, dataIndex) {
-    const data    = NPC_DATA[dataIndex];
-    const color   = data.color;
-    const g       = new THREE.Group();
-    g.position.set(x, 0, z);
+// ── BUILD NPC MESHES ──────────────────────────────────────────────────────────
+export const npcs = [];
 
-    const bodyMat  = new THREE.MeshLambertMaterial({ color });
-    const hatMat   = new THREE.MeshLambertMaterial({ color: new THREE.Color(color).offsetHSL(0, 0, -0.1) });
-    const skinMat  = new THREE.MeshLambertMaterial({ color: 0xffcc99 });
-    const eyeMat   = new THREE.MeshLambertMaterial({ color: 0x111111 });
-    const pantsMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(color).offsetHSL(0, 0, -0.2) });
+NPC_CONFIGS.forEach(cfg => {
+    const g = new THREE.Group();
+    g.position.set(cfg.pos.x, 0, cfg.pos.z);
+    scene.add(g);
 
-    addTo(g, box(0.8, 1.0, 0.4, bodyMat), 0, 1.5, 0);
-    const head = box(0.8, 0.8, 0.8, skinMat);
-    addTo(g, head, 0, 2.4, 0);
-    addTo(head, box(0.15, 0.12, 0.05, eyeMat), -0.2, 0.05, 0.42);
-    addTo(head, box(0.15, 0.12, 0.05, eyeMat),  0.2, 0.05, 0.42);
-    addTo(g, box(0.3, 0.9, 0.3, bodyMat), -0.55, 1.55, 0);
-    addTo(g, box(0.3, 0.9, 0.3, bodyMat),  0.55, 1.55, 0);
-    addTo(g, box(0.35, 0.9, 0.35, pantsMat), -0.22, 0.55, 0);
-    addTo(g, box(0.35, 0.9, 0.35, pantsMat),  0.22, 0.55, 0);
-    addTo(head, box(1.1, 0.12, 1.1, hatMat), 0, 0.46, 0);
-    addTo(head, box(0.7, 0.55, 0.7, hatMat), 0, 0.75, 0);
+    const mat      = new THREE.MeshLambertMaterial({ color: cfg.color });
+    const darkMat  = new THREE.MeshLambertMaterial({ color: 0x1a1a2e });
+    const glowMat  = new THREE.MeshLambertMaterial({
+        color: cfg.color, emissive: cfg.color, emissiveIntensity: 0.7
+    });
 
-    // glowing nameplate
-    const nameMat = new THREE.MeshLambertMaterial({ color, emissive: new THREE.Color(color), emissiveIntensity: 0.3 });
-    addTo(g, box(1.4, 0.4, 0.05, nameMat), 0, 3.6, 0);
+    // body
+    addTo(g, box(0.8, 1.0, 0.5, mat), 0, 0.8, 0);
+    // head
+    const head = box(0.6, 0.6, 0.6, mat);
+    addTo(g, head, 0, 1.65, 0);
+    // face screen
+    addTo(g, box(0.38, 0.22, 0.05, darkMat), 0, 1.68, 0.32);
+    // eye dots
+    addTo(g, box(0.10, 0.08, 0.04, glowMat), -0.10, 1.70, 0.35);
+    addTo(g, box(0.10, 0.08, 0.04, glowMat),  0.10, 1.70, 0.35);
+    // arms
+    addTo(g, box(0.20, 0.65, 0.20, mat), -0.55, 0.85, 0);
+    addTo(g, box(0.20, 0.65, 0.20, mat),  0.55, 0.85, 0);
+    // legs
+    addTo(g, box(0.22, 0.55, 0.22, darkMat), -0.22, 0.28, 0);
+    addTo(g, box(0.22, 0.55, 0.22, darkMat),  0.22, 0.28, 0);
 
-    const npcLight = new THREE.PointLight(new THREE.Color(color), 0.8, 6);
-    npcLight.position.set(0, 2, 0);
-    g.add(npcLight);
+    // label sign
+    const canvas  = document.createElement('canvas');
+    canvas.width  = 512; canvas.height = 80;
+    const ctx     = canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, 512, 80);
+    ctx.fillStyle = `#${cfg.color.toString(16).padStart(6,'0')}`;
+    ctx.font = 'bold 22px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(cfg.name, 256, 50);
+    const tex = new THREE.CanvasTexture(canvas);
+    const sign = new THREE.Mesh(
+        new THREE.PlaneGeometry(3, 0.5),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false })
+    );
+    sign.position.set(0, 2.6, 0);
+    sign.renderOrder = 1;
+    g.add(sign);
 
-    // store challenge data + progress on the NPC
+    // glow light
+    const light = new THREE.PointLight(cfg.color, 0.8, 6);
+    light.position.set(0, 1.5, 0);
+    g.add(light);
+
+    // store userData for interaction
     g.userData = {
-        ...data,
-        light: npcLight,
-        currentChallenge: 0,    // index into challenges array
-        completed: [],           // which challenge levels are done
+        ...cfg,
+        light,
+        currentChallenge: 0,
+        solved: [],
     };
 
-    scene.add(g);
-    addCollider(x, z, 1.2);
-    return g;
-}
-
-// place all 6 teachers around the plaza
-export const npcs = [
-    makeNPC(-12,  0,  0), // Variables
-    makeNPC( 12,  0,  1), // Constants
-    makeNPC(  0, -12, 2), // Print
-    makeNPC(-12, 12,  3), // Input
-    makeNPC( 12, 12,  4), // Logic
-    makeNPC(  0, 12,  5), // Loops
-];
+    addCollider(cfg.pos.x, cfg.pos.z, 1.2);
+    npcs.push(g);
+});

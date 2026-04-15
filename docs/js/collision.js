@@ -1,37 +1,32 @@
-// collision.js — circle colliders + island boundary
-import { BOUNDARY_RADIUS } from './state.js';
+// collision.js — island boundary + obstacle colliders
+import { ISLAND_RADIUS } from './state.js';
 
-export const colliders = [];
+const colliders = []; // { x, z, r }
 
-export function addCollider(x, z, radius) {
-    colliders.push({ x, z, radius });
+export function addCollider(x, z, r) {
+    colliders.push({ x, z, r });
 }
 
-// remove a collider by position — used for gate opening
-export function removeCollider(x, z) {
-    const idx = colliders.findIndex(c => Math.abs(c.x - x) < 1 && Math.abs(c.z - z) < 1);
-    if (idx >= 0) colliders.splice(idx, 1);
-}
-
-export function resolveCollisions(player) {
+export function resolveCollisions(obj) {
     for (const c of colliders) {
-        const dx = player.position.x - c.x;
-        const dz = player.position.z - c.z;
+        const dx   = obj.position.x - c.x;
+        const dz   = obj.position.z - c.z;
         const dist = Math.sqrt(dx * dx + dz * dz);
-        const minDist = c.radius + 0.5;
-        if (dist < minDist && dist > 0) {
-            player.position.x = c.x + (dx / dist) * minDist;
-            player.position.z = c.z + (dz / dist) * minDist;
+        if (dist < c.r + 0.5 && dist > 0.001) {
+            const push = (c.r + 0.5 - dist) / dist;
+            obj.position.x += dx * push;
+            obj.position.z += dz * push;
         }
     }
 }
 
-export function resolveIslandBoundary(player) {
-    const dx = player.position.x;
-    const dz = player.position.z;
+export function resolveIslandBoundary(obj) {
+    const dx   = obj.position.x;
+    const dz   = obj.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist > BOUNDARY_RADIUS) {
-        player.position.x = (dx / dist) * BOUNDARY_RADIUS;
-        player.position.z = (dz / dist) * BOUNDARY_RADIUS;
+    if (dist > ISLAND_RADIUS - 1) {
+        const scale = (ISLAND_RADIUS - 1) / dist;
+        obj.position.x = dx * scale;
+        obj.position.z = dz * scale;
     }
 }

@@ -1,8 +1,0 @@
-# CodeQuest3D — path_tile.mtl
-
-newmtl path
-Kd 0.8235 0.7059 0.5490
-Ka 0.2471 0.2118 0.1647
-Ks 0.1 0.1 0.1
-Ns 32
-
