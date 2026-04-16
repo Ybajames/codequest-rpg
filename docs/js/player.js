@@ -18,7 +18,8 @@ export const controls = {
 
 // ── PLAYER GROUP ──────────────────────────────────────────────────────────────
 export const playerGroup = new THREE.Group();
-playerGroup.position.set(0, 0, 15);
+// Spawn at z=15 (near guide bot), y=10 so gravity drops them onto the terrain surface
+playerGroup.position.set(0, 10, 15);
 scene.add(playerGroup);
 
 // camera pivot (for head look up/down)

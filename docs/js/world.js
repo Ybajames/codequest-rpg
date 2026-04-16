@@ -52,6 +52,18 @@ function noise(x, z) {
          + Math.cos(x * 0.09 + z * 0.11) * 0.25;
 }
 
+// ── EXPORTED HEIGHT SAMPLER ───────────────────────────────────────────────────
+// Returns the terrain Y at any world (x, z). Used by main.js to keep
+// the player standing on the surface instead of floating at y=0.
+export function getTerrainHeight(wx, wz) {
+    const dist = Math.sqrt(wx * wx + wz * wz);
+    if (dist >= ISLAND_RADIUS) return 0;
+    const islandT = Math.max(0, 1 - dist / ISLAND_RADIUS);
+    const hillH   = Math.pow(islandT, 1.8) * 6;
+    const noiseH  = noise(wx, wz) * islandT * 2.2;
+    return hillH + noiseH;
+}
+
 for (let i = 0; i < tPos.count; i++) {
     // PlaneGeometry is in XY before rotation — X stays X, Y becomes Z after -PI/2
     const wx = tPos.getX(i);

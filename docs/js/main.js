@@ -5,7 +5,7 @@ import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/
 import { renderer, scene, camera, MAT, playerData } from './state.js';
 import './world.js';
 import { sunSphere, moonSphere, clouds, birds } from './environment.js';
-import { sunLight, hemiLight as hemi }           from './world.js';
+import { sunLight, hemiLight as hemi, getTerrainHeight } from './world.js';
 import { playerGroup, cameraPivot, pArmL, pArmR, pLegL, pLegR, controls, GRAVITY, JUMP_V, SPEED } from './player.js';
 import { resolveCollisions, resolveIslandBoundary } from './collision.js';
 import { inventory, completeQuest, loadProgress }   from './inventory.js';
@@ -73,7 +73,7 @@ renderer.xr.addEventListener('sessionstart', () => {
     vrRig.add(controller1);
     vrRig.add(controller2);
     vrRig.position.copy(playerGroup.position);
-    vrRig.position.y = 0;
+    vrRig.position.y = getTerrainHeight(playerGroup.position.x, playerGroup.position.z);
     playerGroup.visible = false;
     playerGroup.position.y = -999;
     playerGroup.traverse(c => { c.visible = false; if (c.isMesh) c.layers.disable(0); });
@@ -199,8 +199,11 @@ function animate() {
 
         controls.velocityY += GRAVITY * dt;
         playerGroup.position.y += controls.velocityY * dt;
-        if (playerGroup.position.y <= 0) {
-            playerGroup.position.y = 0;
+
+        // Snap to terrain surface instead of flat y=0
+        const groundY = getTerrainHeight(playerGroup.position.x, playerGroup.position.z);
+        if (playerGroup.position.y <= groundY) {
+            playerGroup.position.y = groundY;
             controls.velocityY     = 0;
             controls.onGround      = true;
         }
@@ -310,7 +313,8 @@ function animate() {
                     camRight.y = 0; camRight.normalize();
                     if (Math.abs(axes[3]) > 0.12) vrRig.position.addScaledVector(camDir,  -axes[3]*SPEED*dt);
                     if (Math.abs(axes[2]) > 0.12) vrRig.position.addScaledVector(camRight, axes[2]*SPEED*dt);
-                    vrRig.position.y = 0;
+                    // Snap VR rig to terrain surface
+                    vrRig.position.y = getTerrainHeight(vrRig.position.x, vrRig.position.z);
                     playerGroup.position.x = vrRig.position.x;
                     playerGroup.position.z = vrRig.position.z;
                     playerGroup.position.y = -999;
