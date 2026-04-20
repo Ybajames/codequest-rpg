@@ -32,6 +32,9 @@ export function openArena(username) {
     let answered = false;
 
     function render() {
+        // Always clear any running timer before rendering a new question
+        clearInterval(timerInterval);
+        answered = false;
         const q = questions[qIndex];
         const timeLeft = 12;
 
@@ -135,7 +138,6 @@ export function openArena(username) {
     }
 
     function nextQuestion() {
-        answered = false;
         qIndex++;
         if (qIndex >= questions.length) {
             showArenaResult();

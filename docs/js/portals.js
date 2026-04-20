@@ -2,6 +2,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
 import { scene, playerData } from './state.js';
 import { openArena, openRace, openQuiz } from './games.js';
+import { getTerrainHeight } from './world.js';
 
 const PORTALS = [
     {
@@ -35,7 +36,7 @@ const portalObjects = [];
 
 PORTALS.forEach(p => {
     const g = new THREE.Group();
-    g.position.set(p.pos.x, 0, p.pos.z);
+    g.position.set(p.pos.x, getTerrainHeight(p.pos.x, p.pos.z), p.pos.z);
     scene.add(g);
 
     // outer ring
@@ -141,9 +142,10 @@ export function animatePortals(t) {
             mesh.userData.angle += mesh.userData.speed * 0.016;
             const a = mesh.userData.angle;
             const r = mesh.userData.radius;
+            const portalWorldY = getTerrainHeight(portalPos.x, portalPos.z);
             mesh.position.set(
                 portalPos.x + Math.cos(a) * r,
-                2.5 + Math.sin(t * 2 + mesh.userData.phase) * 0.4,
+                portalWorldY + 2.5 + Math.sin(t * 2 + mesh.userData.phase) * 0.4,
                 portalPos.z + Math.sin(a) * r
             );
         });

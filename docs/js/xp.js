@@ -17,7 +17,7 @@ unlockFlash.innerHTML = `<div class="unlock-title"></div><div class="unlock-sub"
 document.body.appendChild(unlockFlash);
 
 export function addXP(amount, reason = '') {
-    xpState.totalXP += amount;
+    xpState.totalXP = Math.max(0, xpState.totalXP + amount);
     while (xpState.totalXP >= xpState.xpToNext) {
         xpState.totalXP  -= xpState.xpToNext;
         xpState.level    += 1;

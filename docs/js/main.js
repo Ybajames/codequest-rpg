@@ -90,7 +90,7 @@ renderer.xr.addEventListener('sessionend', () => {
     vrRig.remove(controller2);
     cameraPivot.add(camera);
     camera.position.set(0, 0, 0);
-    playerGroup.position.set(vrRig.position.x, 0, vrRig.position.z);
+    playerGroup.position.set(vrRig.position.x, getTerrainHeight(vrRig.position.x, vrRig.position.z), vrRig.position.z);
     playerGroup.visible = true;
     playerGroup.traverse(c => { c.visible = true; if (c.isMesh) c.layers.enable(0); });
     ['ui','inventory','quest-btn','crosshair'].forEach(id => {

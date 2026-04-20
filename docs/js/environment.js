@@ -2,12 +2,13 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
 import { scene, MAT, box, ISLAND_RADIUS, BEACH_WIDTH } from './state.js';
 import { addCollider } from './collision.js';
+import { getTerrainHeight } from './world.js';
 
 // ── REALISTIC TREES ───────────────────────────────────────────────────────────
 function makeTree(x, z, height = 4, variant = 0) {
     if (Math.sqrt(x*x+z*z) > ISLAND_RADIUS - BEACH_WIDTH - 1) return;
     const g = new THREE.Group();
-    g.position.set(x, 0, z);
+    g.position.set(x, getTerrainHeight(x, z), z);
 
     // trunk — tapered cylinder
     const trunkGeo = new THREE.CylinderGeometry(
@@ -45,6 +46,10 @@ function makeTree(x, z, height = 4, variant = 0) {
     addCollider(x, z, 0.8);
 }
 
+const PORTAL_POSITIONS = [{x:0,z:-32},{x:30,z:8},{x:-30,z:8}];
+const NPC_POSITIONS    = [{x:-18,z:-12},{x:20,z:-14},{x:-20,z:16},{x:22,z:18},{x:-22,z:-20},{x:16,z:-22},{x:0,z:10}];
+const MIN_CLEAR = 8; // minimum distance from portals/NPCs
+
 const treePositions = [
     [-35,-35],[-33,-38],[-38,-33],[34,-35],[36,-38],[32,-33],
     [-35,34],[-33,36],[-38,32],[34,34],[36,32],[32,36],
@@ -53,7 +58,15 @@ const treePositions = [
     [16,20],[-16,-20],[10,-24],[20,-10],[-20,10],[-10,20],[25,10],[-25,-10],
     [10,30],[-10,-30],[30,-10],[-30,10],[18,-18],[-18,18],[28,20],[-28,-20],
     [40,5],[-40,5],[40,-5],[-40,-5],[5,40],[-5,40],[5,-40],[-5,-40],
-];
+].filter(([x, z]) => {
+    for (const p of PORTAL_POSITIONS) {
+        if (Math.sqrt((x-p.x)**2 + (z-p.z)**2) < MIN_CLEAR) return false;
+    }
+    for (const n of NPC_POSITIONS) {
+        if (Math.sqrt((x-n.x)**2 + (z-n.z)**2) < MIN_CLEAR) return false;
+    }
+    return true;
+});
 treePositions.forEach(([x, z], i) => makeTree(x, z, 3 + (i % 3), i));
 
 // ── SUN ───────────────────────────────────────────────────────────────────────

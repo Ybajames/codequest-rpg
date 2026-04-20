@@ -2,10 +2,11 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
 import { scene, box, addTo } from './state.js';
 import { addCollider } from './collision.js';
+import { getTerrainHeight } from './world.js';
 
 // ── GUIDE BOT MESH ────────────────────────────────────────────────────────────
 const g = new THREE.Group();
-g.position.set(0, 0, 10); // just south of centre plaza
+g.position.set(0, getTerrainHeight(0, 10), 10); // just south of centre plaza
 scene.add(g);
 
 const mMetal  = new THREE.MeshLambertMaterial({ color: 0x78909c });
@@ -82,6 +83,8 @@ export function getGuideMessage() {
 }
 
 // ── ANIMATE ───────────────────────────────────────────────────────────────────
+const GUIDE_BASE_Y = getTerrainHeight(0, 10);
+
 export function animateGuide(playerPos, t) {
     // face player
     g.rotation.y = Math.atan2(
@@ -89,8 +92,8 @@ export function animateGuide(playerPos, t) {
         playerPos.z - g.position.z
     );
 
-    // gentle hover bob
-    g.position.y = Math.sin(t * 1.4) * 0.06;
+    // gentle hover bob — offset from terrain base, not absolute y=0
+    g.position.y = GUIDE_BASE_Y + Math.sin(t * 1.4) * 0.06;
 
     // arm wave
     armLG.rotation.x = Math.sin(t * 1.2) * 0.25;

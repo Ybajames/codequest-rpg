@@ -2,6 +2,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
 import { scene, box, addTo } from './state.js';
 import { addCollider } from './collision.js';
+import { getTerrainHeight } from './world.js';
 
 // ── NPC DEFINITIONS ───────────────────────────────────────────────────────────
 const NPC_CONFIGS = [
@@ -243,7 +244,7 @@ export const npcs = [];
 
 NPC_CONFIGS.forEach(cfg => {
     const g = new THREE.Group();
-    g.position.set(cfg.pos.x, 0, cfg.pos.z);
+    g.position.set(cfg.pos.x, getTerrainHeight(cfg.pos.x, cfg.pos.z), cfg.pos.z);
     scene.add(g);
 
     const mat      = new THREE.MeshLambertMaterial({ color: cfg.color });
