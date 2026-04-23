@@ -1,5 +1,5 @@
 // games.js — All three portal games: Arena, Race, Quiz
-import { QUESTIONS, getQuestions, shuffle } from './questions.js';
+import { getQuestions } from './questions.js';
 import { playCorrect, playWrong, playLevelUp } from './audio.js';
 import { addXP } from './xp.js';
 import { completeQuest } from './inventory.js';

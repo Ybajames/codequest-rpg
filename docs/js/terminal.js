@@ -5,7 +5,6 @@ import { unlockAbility }  from './inventory.js';
 import { addXP }          from './xp.js';
 
 export let terminalOpen = false;
-let overlayRef = null;
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
 const overlay = document.createElement('div');
@@ -43,8 +42,6 @@ const closeBtn    = document.getElementById('terminalClose');
 let currentNPC       = null;
 let currentChallenge = 0;
 let solved           = [];
-
-export function setOverlayRef(ref) { overlayRef = ref; }
 
 // ── OPEN / CLOSE ──────────────────────────────────────────────────────────────
 export function openTerminal(npcData) {

@@ -25,14 +25,17 @@ scene.add(hemiLight);
 const oceanGeo  = new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE, 8, 8);
 export const oceanMesh = new THREE.Mesh(oceanGeo, MAT.ocean);
 oceanMesh.rotation.x = -Math.PI / 2;
-oceanMesh.position.y = 0.05; // sits just above terrain outer ring (h=0) to hide the seam
+oceanMesh.position.y = 0.15; // comfortably above the terrain island edge
 scene.add(oceanMesh);
 
 // shallow water ring  ← REMOVED: was sitting above terrain edge, caused black ring
 
-// ── TERRAIN — displaced PlaneGeometry with vertex colors ──────────────────────
+// ── TERRAIN — island-only displaced geometry, no outer skirt ─────────────────
+// Use a circle of segments so there are zero vertices outside the island.
+// We build it as a PlaneGeometry but immediately discard any vertex outside
+// ISLAND_RADIUS by collapsing it onto the beach edge, so no walls form.
 const T_SEGS = 80;
-const T_SIZE = ISLAND_RADIUS * 2 + 4;
+const T_SIZE = ISLAND_RADIUS * 2;          // exactly island diameter, no border
 const terrGeo = new THREE.PlaneGeometry(T_SIZE, T_SIZE, T_SEGS, T_SEGS);
 
 const tPos    = terrGeo.attributes.position;
@@ -47,37 +50,44 @@ function noise(x, z) {
 
 // ── EXPORTED HEIGHT SAMPLER ───────────────────────────────────────────────────
 // PlaneGeometry rotateX(-PI/2) maps plane-Y to world -Z.
-// So the vertex loop samples noise(wx, planeY) where planeY = -worldZ.
-// We must negate wz here to match the mesh exactly.
 export function getTerrainHeight(wx, wz) {
     const dist = Math.sqrt(wx * wx + wz * wz);
     if (dist >= ISLAND_RADIUS) return 0;
     const islandT = Math.max(0, 1 - dist / ISLAND_RADIUS);
     const hillH   = Math.pow(islandT, 1.8) * 6;
-    const noiseH  = noise(wx, -wz) * islandT * 2.2; // negate wz to match mesh
+    const noiseH  = noise(wx, -wz) * islandT * 2.2;
     return Math.max(0, hillH + noiseH);
 }
 
 for (let i = 0; i < tPos.count; i++) {
-    const wx   = tPos.getX(i);
-    const wz   = tPos.getY(i);
-    const dist = Math.sqrt(wx*wx + wz*wz);
+    let wx   = tPos.getX(i);
+    let wz   = tPos.getY(i);   // plane Y = world -Z after rotateX
+    const dist = Math.sqrt(wx * wx + wz * wz);
 
-    const islandT = Math.max(0, 1 - dist / ISLAND_RADIUS);
+    // Clamp any vertex outside the island back onto the beach edge.
+    // This means there are NO steep drop-off walls, just a smooth coast.
+    let sampleX = wx, sampleZ = wz;
+    if (dist > ISLAND_RADIUS) {
+        const scale = ISLAND_RADIUS / dist;
+        sampleX = wx * scale;
+        sampleZ = wz * scale;
+    }
+
+    const clampedDist = Math.min(dist, ISLAND_RADIUS);
+    const islandT = Math.max(0, 1 - clampedDist / ISLAND_RADIUS);
     const hillH   = Math.pow(islandT, 1.8) * 6;
-    const noiseH  = noise(wx, wz) * islandT * 2.2;
-    // Clamp h >= 0 so outer noise dips never punch below the ocean floor
-    const h = dist < ISLAND_RADIUS ? Math.max(0, hillH + noiseH) : 0;
+    const noiseH  = noise(sampleX, sampleZ) * islandT * 2.2;
+    const h       = Math.max(0, hillH + noiseH);
 
     tPos.setZ(i, h);
 
-    // vertex colors: beach → grass → rock → peak
+    // vertex colors
     const t = Math.min(1, h / 6);
     let r, g, b;
-    if (dist > ISLAND_RADIUS - BEACH_WIDTH) {
+    if (clampedDist > ISLAND_RADIUS - BEACH_WIDTH) {
         r = 0.92; g = 0.84; b = 0.62; // sand
     } else if (t < 0.25) {
-        r = 0.30; g = 0.58; b = 0.22; // bright grass
+        r = 0.30; g = 0.58; b = 0.22; // grass
     } else if (t < 0.55) {
         const f = (t - 0.25) / 0.30;
         r = 0.30 + f*0.18; g = 0.58 - f*0.12; b = 0.22 - f*0.06;
@@ -97,11 +107,9 @@ terrGeo.setAttribute('color', new THREE.BufferAttribute(tColors, 3));
 terrGeo.rotateX(-Math.PI / 2);
 terrGeo.computeVertexNormals();
 
-const terrMat  = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+const terrMat  = new THREE.MeshLambertMaterial({ vertexColors: true });
 const terrMesh = new THREE.Mesh(terrGeo, terrMat);
 terrMesh.receiveShadow = true;
-// No Y offset needed — all vertices are clamped >= 0, outer ring sits at exactly y=0
-// which is below the ocean plane at y=-0.5, so it's never visible
 scene.add(terrMesh);
 
 

@@ -253,22 +253,22 @@ NPC_CONFIGS.forEach(cfg => {
         color: cfg.color, emissive: cfg.color, emissiveIntensity: 0.7
     });
 
-    // body
-    addTo(g, box(0.8, 1.0, 0.5, mat), 0, 0.8, 0);
-    // head
+    // body — bottom at y=0.55, top at y=1.55
+    addTo(g, box(0.8, 1.0, 0.5, mat), 0, 1.05, 0);
+    // head — sits on top of body
     const head = box(0.6, 0.6, 0.6, mat);
-    addTo(g, head, 0, 1.65, 0);
+    addTo(g, head, 0, 1.85, 0);
     // face screen
-    addTo(g, box(0.38, 0.22, 0.05, darkMat), 0, 1.68, 0.32);
+    addTo(g, box(0.38, 0.22, 0.05, darkMat), 0, 1.88, 0.32);
     // eye dots
-    addTo(g, box(0.10, 0.08, 0.04, glowMat), -0.10, 1.70, 0.35);
-    addTo(g, box(0.10, 0.08, 0.04, glowMat),  0.10, 1.70, 0.35);
-    // arms
-    addTo(g, box(0.20, 0.65, 0.20, mat), -0.55, 0.85, 0);
-    addTo(g, box(0.20, 0.65, 0.20, mat),  0.55, 0.85, 0);
-    // legs
-    addTo(g, box(0.22, 0.55, 0.22, darkMat), -0.22, 0.28, 0);
-    addTo(g, box(0.22, 0.55, 0.22, darkMat),  0.22, 0.28, 0);
+    addTo(g, box(0.10, 0.08, 0.04, glowMat), -0.10, 1.90, 0.35);
+    addTo(g, box(0.10, 0.08, 0.04, glowMat),  0.10, 1.90, 0.35);
+    // arms — alongside body
+    addTo(g, box(0.20, 0.65, 0.20, mat), -0.55, 1.05, 0);
+    addTo(g, box(0.20, 0.65, 0.20, mat),  0.55, 1.05, 0);
+    // legs — bottom at y=0 (ground), top connects to body at y=0.55
+    addTo(g, box(0.22, 0.55, 0.22, darkMat), -0.22, 0.275, 0);
+    addTo(g, box(0.22, 0.55, 0.22, darkMat),  0.22, 0.275, 0);
 
     // label sign
     const canvas  = document.createElement('canvas');
@@ -285,13 +285,13 @@ NPC_CONFIGS.forEach(cfg => {
         new THREE.PlaneGeometry(3, 0.5),
         new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false })
     );
-    sign.position.set(0, 2.6, 0);
+    sign.position.set(0, 3.0, 0);
     sign.renderOrder = 1;
     g.add(sign);
 
     // glow light
     const light = new THREE.PointLight(cfg.color, 0.8, 6);
-    light.position.set(0, 1.5, 0);
+    light.position.set(0, 1.8, 0);
     g.add(light);
 
     // store userData for interaction

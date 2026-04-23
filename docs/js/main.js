@@ -3,7 +3,6 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.mod
 import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/webxr/VRButton.js';
 
 import { renderer, scene, camera, MAT, playerData } from './state.js';
-import './world.js';
 import { sunSphere, moonSphere, clouds, birds } from './environment.js';
 import { sunLight, hemiLight as hemi, getTerrainHeight } from './world.js';
 import { playerGroup, cameraPivot, pArmL, pArmR, pLegL, pLegR, controls, GRAVITY, JUMP_V, SPEED } from './player.js';
@@ -11,7 +10,7 @@ import { resolveCollisions, resolveIslandBoundary } from './collision.js';
 import { inventory, completeQuest, loadProgress }   from './inventory.js';
 import { addXP, xpState }      from './xp.js';
 import { initAudio, setOceanVolume } from './audio.js';
-import { terminalOpen, openTerminal, closeTerminal, setOverlayRef } from './terminal.js';
+import { terminalOpen, openTerminal, closeTerminal } from './terminal.js';
 import { checkPortals, animatePortals } from './portals.js';
 import { guideNPC, animateGuide, getGuideMessage } from './guide.js';
 import { npcs } from './npcs.js';
@@ -40,7 +39,6 @@ lockOverlay.innerHTML = `
     </button>
 `;
 document.body.appendChild(lockOverlay);
-setOverlayRef(lockOverlay);
 
 // ── VR SETUP ──────────────────────────────────────────────────────────────────
 let _vrSessionActive = false;
@@ -77,7 +75,7 @@ renderer.xr.addEventListener('sessionstart', () => {
     playerGroup.visible = false;
     playerGroup.position.y = -999;
     playerGroup.traverse(c => { c.visible = false; if (c.isMesh) c.layers.disable(0); });
-    ['ui','inventory','quest-btn','quests','crosshair'].forEach(id => {
+    ['ui','quests','quest-btn','crosshair'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -93,7 +91,7 @@ renderer.xr.addEventListener('sessionend', () => {
     playerGroup.position.set(vrRig.position.x, getTerrainHeight(vrRig.position.x, vrRig.position.z), vrRig.position.z);
     playerGroup.visible = true;
     playerGroup.traverse(c => { c.visible = true; if (c.isMesh) c.layers.enable(0); });
-    ['ui','inventory','quest-btn','crosshair'].forEach(id => {
+    ['ui','quests','quest-btn','crosshair'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = '';
     });
