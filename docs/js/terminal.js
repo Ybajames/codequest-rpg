@@ -3,6 +3,7 @@
 import { playCorrect, playWrong, playUnlock } from './audio.js';
 import { unlockAbility }  from './inventory.js';
 import { addXP }          from './xp.js';
+import { renderer }       from './state.js';
 
 export let terminalOpen = false;
 
@@ -17,7 +18,9 @@ overlay.innerHTML = `
     </div>
     <div id="challengeDesc"></div>
     <div id="challengeHint"></div>
+    <div id="modeToggle"></div>
     <textarea id="codeEditor" spellcheck="false" placeholder="# Write your Python answer here…"></textarea>
+    <div id="choiceArea"></div>
     <div id="terminalFooter">
       <button id="runBtn">▶ RUN</button>
       <button id="hintBtn">💡 HINT</button>
@@ -31,7 +34,9 @@ document.body.appendChild(overlay);
 const termTitle   = document.getElementById('terminalTitle');
 const descEl      = document.getElementById('challengeDesc');
 const hintEl      = document.getElementById('challengeHint');
+const modeToggle  = document.getElementById('modeToggle');
 const editor      = document.getElementById('codeEditor');
+const choiceArea  = document.getElementById('choiceArea');
 const runBtn      = document.getElementById('runBtn');
 const hintBtn     = document.getElementById('hintBtn');
 const pipsEl      = document.getElementById('progressPips');
@@ -42,12 +47,14 @@ const closeBtn    = document.getElementById('terminalClose');
 let currentNPC       = null;
 let currentChallenge = 0;
 let solved           = [];
+let interactionMode  = 'code';
 
 // ── OPEN / CLOSE ──────────────────────────────────────────────────────────────
 export function openTerminal(npcData) {
     currentNPC       = npcData;
     currentChallenge = npcData.currentChallenge || 0;
     solved           = npcData.solved           || [];
+    modeToggle.dataset.userPicked = '';
     terminalOpen     = true;
     overlay.classList.add('open');
     document.exitPointerLock();
@@ -68,6 +75,11 @@ function loadChallenge() {
     const ch = currentNPC.challenges[currentChallenge];
     if (!ch) return;
 
+    const canUseChoiceMode = Array.isArray(ch.choices) && typeof ch.correctChoice === 'number';
+    const preferChoiceMode = renderer.xr.isPresenting || isCompactInput();
+    if (!canUseChoiceMode) interactionMode = 'code';
+    else if (!modeToggle.dataset.userPicked) interactionMode = preferChoiceMode ? 'choice' : 'code';
+
     termTitle.innerText      = `${currentNPC.name} — ${currentNPC.ability} (${currentChallenge + 1}/${currentNPC.challenges.length})`;
     descEl.innerText         = ch.description;
     editor.value             = ch.starter || '';
@@ -75,6 +87,8 @@ function loadChallenge() {
     outputEl.className       = '';
     hintEl.style.display     = 'none';
     hintEl.innerText         = '';
+    renderModeToggle(ch);
+    renderInteractionUI(ch);
 
     // Build progress pips
     pipsEl.innerHTML = '';
@@ -82,6 +96,53 @@ function loadChallenge() {
         const pip = document.createElement('div');
         pip.className = 'pip' + (solved.includes(i) ? ' done' : i === currentChallenge ? ' active' : '');
         pipsEl.appendChild(pip);
+    });
+}
+
+function renderModeToggle(ch) {
+    const canUseChoiceMode = Array.isArray(ch.choices) && typeof ch.correctChoice === 'number';
+    if (!canUseChoiceMode) {
+        modeToggle.innerHTML = '';
+        modeToggle.style.display = 'none';
+        return;
+    }
+
+    modeToggle.style.display = 'flex';
+    modeToggle.innerHTML = `
+        <button class="mode-btn${interactionMode === 'choice' ? ' active' : ''}" data-mode="choice">Pick Answer</button>
+        <button class="mode-btn${interactionMode === 'code' ? ' active' : ''}" data-mode="code">Type Code</button>
+    `;
+
+    modeToggle.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            interactionMode = btn.dataset.mode;
+            modeToggle.dataset.userPicked = '1';
+            renderModeToggle(ch);
+            renderInteractionUI(ch);
+        });
+    });
+}
+
+function renderInteractionUI(ch) {
+    const useChoiceMode = interactionMode === 'choice' && Array.isArray(ch.choices);
+    editor.style.display = useChoiceMode ? 'none' : 'block';
+    runBtn.style.display = useChoiceMode ? 'none' : 'inline-flex';
+    choiceArea.style.display = useChoiceMode ? 'grid' : 'none';
+
+    if (!useChoiceMode) {
+        choiceArea.innerHTML = '';
+        return;
+    }
+
+    choiceArea.innerHTML = ch.choices.map((choice, i) => `
+        <button class="choice-card" data-choice="${i}">
+            <span class="choice-label">${String.fromCharCode(65 + i)}</span>
+            <pre>${escapeHTML(choice)}</pre>
+        </button>
+    `).join('');
+
+    choiceArea.querySelectorAll('.choice-card').forEach(btn => {
+        btn.addEventListener('click', () => submitChoice(ch, Number(btn.dataset.choice)));
     });
 }
 
@@ -132,6 +193,27 @@ function runCode() {
     }
 }
 
+function submitChoice(ch, choiceIndex) {
+    const cards = [...choiceArea.querySelectorAll('.choice-card')];
+    cards.forEach(card => { card.disabled = true; });
+
+    const isCorrect = choiceIndex === ch.correctChoice;
+    const picked = cards[choiceIndex];
+    if (picked) picked.classList.add(isCorrect ? 'correct' : 'wrong');
+
+    if (!isCorrect && cards[ch.correctChoice]) {
+        cards[ch.correctChoice].classList.add('correct');
+    }
+
+    if (isCorrect) {
+        onCorrect(ch);
+    } else {
+        showOutput('Not quite. Study the structure and try again.', true);
+        playWrong();
+        setTimeout(() => renderInteractionUI(ch), 1400);
+    }
+}
+
 function onCorrect(ch) {
     playCorrect();
     showOutput('✅ Correct! ' + (ch.successMsg || 'Well done!'), false);
@@ -174,6 +256,17 @@ function onCorrect(ch) {
 function showOutput(msg, isError) {
     outputEl.innerText = msg;
     outputEl.className = isError ? 'error' : '';
+}
+
+function isCompactInput() {
+    return window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900;
+}
+
+function escapeHTML(text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
 }
 
 // ── UNLOCK FLASH ──────────────────────────────────────────────────────────────

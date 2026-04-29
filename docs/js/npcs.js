@@ -17,6 +17,12 @@ const NPC_CONFIGS = [
                 description: 'Create a variable called "score" and set it to 42.\nThen print it.',
                 starter:     '# Create your variable below\n',
                 hint:        'score = 42\nprint(score)',
+                choices: [
+                    'score = 42\nprint(score)',
+                    'score == 42\nshow(score)',
+                    '42 = score\nprint("score")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     const hasVar   = /score\s*=\s*42/.test(code);
                     const hasPrint = /print\s*\(\s*score\s*\)/.test(code);
@@ -30,6 +36,12 @@ const NPC_CONFIGS = [
                 description: 'Create TWO variables: "first_name" (your name as a string)\nand "age" (any number). Print both.',
                 starter:     '# Two variables!\n',
                 hint:        'first_name = "Ada"\nage = 20\nprint(first_name)\nprint(age)',
+                choices: [
+                    'first_name = "Ada"\nage = 20\nprint(first_name)\nprint(age)',
+                    'name = Ada\nage = "20"\necho(name, age)',
+                    'first_name = 20\nage = "Ada"\nprint(first_name)',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/first_name\s*=/.test(code))   return 'Missing: first_name = ...';
                     if (!/age\s*=\s*\d+/.test(code))    return 'Missing: age = (a number)';
@@ -42,6 +54,12 @@ const NPC_CONFIGS = [
                 description: 'Swap two variables without losing their values.\na = 10\nb = 20\n# After your code, a should be 20, b should be 10\nprint(a, b)',
                 starter:     'a = 10\nb = 20\n# swap them here\n\nprint(a, b)',
                 hint:        'a, b = b, a   # Python tuple swap!',
+                choices: [
+                    'a = 10\nb = 20\na, b = b, a\nprint(a, b)',
+                    'a = 10\nb = 20\na = b\nb = a\nprint(a, b)',
+                    'a = 10\nb = 20\nprint(b, a)',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!(/a\s*,\s*b\s*=\s*b\s*,\s*a/.test(code) || /temp/.test(code)))
                         return 'Try using a temp variable, or Python\'s tuple swap: a, b = b, a';
@@ -64,6 +82,12 @@ const NPC_CONFIGS = [
                 description: 'Print exactly: Hello, World!',
                 starter:     '',
                 hint:        'print("Hello, World!")',
+                choices: [
+                    'print("Hello, World!")',
+                    'echo("Hello, World!")',
+                    'print(Hello, World!)',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!code.includes('print'))     return 'Use the print() function!';
                     if (!code.includes('Hello, World!')) return 'Print exactly: Hello, World!  (check punctuation)';
@@ -75,6 +99,12 @@ const NPC_CONFIGS = [
                 description: 'Use an f-string to print:\n"My name is X and I am Y years old"\n(replace X and Y with actual variable values)',
                 starter:     'name = "Alex"\nage = 15\n# print with f-string\n',
                 hint:        'print(f"My name is {name} and I am {age} years old")',
+                choices: [
+                    'name = "Alex"\nage = 15\nprint(f"My name is {name} and I am {age} years old")',
+                    'name = "Alex"\nage = 15\nprint("My name is {name} and I am {age} years old")',
+                    'name = "Alex"\nage = 15\nprint(f"My name is name and I am age years old")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/f["']/.test(code))        return 'Use an f-string: f"..."';
                     if (!/{name}/.test(code))        return 'Include {name} in your f-string';
@@ -96,6 +126,12 @@ const NPC_CONFIGS = [
                 description: 'Write code that:\n- Creates a variable "temp" = 35\n- If temp > 30, print "Hot!"\n- Otherwise print "Cool"',
                 starter:     'temp = 35\n# your if/else here\n',
                 hint:        'if temp > 30:\n    print("Hot!")\nelse:\n    print("Cool")',
+                choices: [
+                    'temp = 35\nif temp > 30:\n    print("Hot!")\nelse:\n    print("Cool")',
+                    'temp = 35\nif temp < 30:\n    print("Hot!")\nelse:\n    print("Cool")',
+                    'temp = 35\nprint("Hot!")\nprint("Cool")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/temp\s*=\s*35/.test(code))  return 'Keep: temp = 35';
                     if (!/if\s+temp/.test(code))       return 'Use an if statement with temp';
@@ -108,6 +144,12 @@ const NPC_CONFIGS = [
                 description: 'Use elif to grade a score:\n- score >= 90 → print "A"\n- score >= 70 → print "B"\n- else → print "C"',
                 starter:     'score = 85\n# grade the score\n',
                 hint:        'if score >= 90:\n    print("A")\nelif score >= 70:\n    print("B")\nelse:\n    print("C")',
+                choices: [
+                    'score = 85\nif score >= 90:\n    print("A")\nelif score >= 70:\n    print("B")\nelse:\n    print("C")',
+                    'score = 85\nif score >= 70:\n    print("B")\nif score >= 90:\n    print("A")\nelse:\n    print("C")',
+                    'score = 85\nelif score >= 70:\n    print("B")\nelse:\n    print("C")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!code.includes('elif'))       return 'Use elif for the second condition!';
                     if ((code.match(/print/g)||[]).length < 1) return 'Add print statements';
@@ -119,6 +161,12 @@ const NPC_CONFIGS = [
                 description: 'Use "and" / "or":\nIf a number is between 1 and 10 (inclusive), print "In range"\nOtherwise print "Out of range"\n(test with n = 7)',
                 starter:     'n = 7\n# your code\n',
                 hint:        'if n >= 1 and n <= 10:\n    print("In range")\nelse:\n    print("Out of range")',
+                choices: [
+                    'n = 7\nif n >= 1 and n <= 10:\n    print("In range")\nelse:\n    print("Out of range")',
+                    'n = 7\nif n >= 1 or n <= 10:\n    print("In range")',
+                    'n = 7\nif n == 1 and 10:\n    print("In range")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/and|or/.test(code))        return 'Use "and" or "or" operator!';
                     if (!/print/.test(code))         return 'Add print statement';
@@ -139,6 +187,12 @@ const NPC_CONFIGS = [
                 description: 'Use a for loop to print numbers 1 through 5\n(one per line)',
                 starter:     '# Use range(1, 6)\n',
                 hint:        'for i in range(1, 6):\n    print(i)',
+                choices: [
+                    'for i in range(1, 6):\n    print(i)',
+                    'for i in range(5):\nprint(i)',
+                    'while i <= 5:\n    print(i)',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/for\s+\w+\s+in\s+range/.test(code)) return 'Use a for loop with range()!';
                     if (!/print/.test(code))                   return 'Add print inside the loop';
@@ -150,6 +204,12 @@ const NPC_CONFIGS = [
                 description: 'Use a loop to calculate the sum of 1 to 10.\nPrint the final total.',
                 starter:     'total = 0\n# loop from 1 to 10\n\nprint(total)',
                 hint:        'total = 0\nfor i in range(1, 11):\n    total += i\nprint(total)',
+                choices: [
+                    'total = 0\nfor i in range(1, 11):\n    total += i\nprint(total)',
+                    'total = 0\nfor i in range(10):\n    total = i\nprint(total)',
+                    'for i in range(1, 11):\n    print(i)',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/total\s*=\s*0/.test(code))           return 'Start with: total = 0';
                     if (!/total\s*\+=/.test(code))             return 'Use total += i inside the loop';
@@ -162,6 +222,12 @@ const NPC_CONFIGS = [
                 description: 'Use a while loop to count DOWN from 5 to 1,\nprinting each number. Then print "Blastoff!"',
                 starter:     'count = 5\n# while loop countdown\n',
                 hint:        'count = 5\nwhile count >= 1:\n    print(count)\n    count -= 1\nprint("Blastoff!")',
+                choices: [
+                    'count = 5\nwhile count >= 1:\n    print(count)\n    count -= 1\nprint("Blastoff!")',
+                    'count = 5\nwhile count >= 1:\n    print(count)\nprint("Blastoff!")',
+                    'for count in range(5):\n    print(count)\nprint("Blastoff!")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/while/.test(code))           return 'Use a while loop!';
                     if (!/count\s*-=\s*1/.test(code))  return 'Decrease count with: count -= 1';
@@ -183,6 +249,12 @@ const NPC_CONFIGS = [
                 description: 'Define a function called "square" that takes\na number n and returns n * n.\nThen print square(5).',
                 starter:     '# def your function\n\n',
                 hint:        'def square(n):\n    return n * n\n\nprint(square(5))',
+                choices: [
+                    'def square(n):\n    return n * n\n\nprint(square(5))',
+                    'function square(n):\n    return n * n\n\nprint(square(5))',
+                    'def square(n):\n    print(n * n)',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/def\s+square\s*\(\s*n\s*\)/.test(code)) return 'Define: def square(n):';
                     if (!/return\s+n\s*\*\s*n/.test(code))        return 'Return n * n';
@@ -195,6 +267,12 @@ const NPC_CONFIGS = [
                 description: 'Write a function "greet" that takes a "name"\nparameter and returns "Hello, {name}!"\nCall it with your own name and print the result.',
                 starter:     '# define greet(name)\n',
                 hint:        'def greet(name):\n    return f"Hello, {name}!"\n\nprint(greet("Ada"))',
+                choices: [
+                    'def greet(name):\n    return f"Hello, {name}!"\n\nprint(greet("Ada"))',
+                    'def greet():\n    print("Hello, Ada!")',
+                    'def greet(name):\n    print(f"Hello, {name}!")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/def\s+greet\s*\(\s*name\s*\)/.test(code)) return 'Define: def greet(name):';
                     if (!/return/.test(code))                        return 'Use return in the function!';
@@ -216,6 +294,12 @@ const NPC_CONFIGS = [
                 description: 'Write code that:\n1. Asks for a name using input()\n2. Prints "Nice to meet you, {name}!"',
                 starter:     '# Ask for a name\n',
                 hint:        'name = input("Enter your name: ")\nprint(f"Nice to meet you, {name}!")',
+                choices: [
+                    'name = input("Enter your name: ")\nprint(f"Nice to meet you, {name}!")',
+                    'print(input("Enter your name: "))',
+                    'name = "Ada"\nprint("Nice to meet you!")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/input\s*\(/.test(code))  return 'Use the input() function!';
                     if (!/print/.test(code))        return 'Print a greeting!';
@@ -227,6 +311,12 @@ const NPC_CONFIGS = [
                 description: 'Ask for a number, convert it to int,\nthen print whether it is even or odd.\n(Hint: use num % 2)',
                 starter:     '# get a number from user\n# convert with int()\n# check even/odd\n',
                 hint:        'num = int(input("Enter a number: "))\nif num % 2 == 0:\n    print("Even")\nelse:\n    print("Odd")',
+                choices: [
+                    'num = int(input("Enter a number: "))\nif num % 2 == 0:\n    print("Even")\nelse:\n    print("Odd")',
+                    'num = input("Enter a number: ")\nprint(num)',
+                    'num = int(input("Enter a number: "))\nif num / 2 == 0:\n    print("Even")',
+                ],
+                correctChoice: 0,
                 check: code => {
                     if (!/int\s*\(\s*input/.test(code))  return 'Convert with: int(input(...))';
                     if (!/\%\s*2/.test(code))            return 'Use % 2 to check even/odd';

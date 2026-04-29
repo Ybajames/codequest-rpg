@@ -25,7 +25,11 @@ scene.add(hemiLight);
 const oceanGeo  = new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE, 8, 8);
 export const oceanMesh = new THREE.Mesh(oceanGeo, MAT.ocean);
 oceanMesh.rotation.x = -Math.PI / 2;
-oceanMesh.position.y = 0.15; // comfortably above the terrain island edge
+// Keep the water slightly below the island coast so it reads as surrounding
+// ocean instead of intersecting the terrain as a dark floating sheet.
+oceanMesh.position.y = -0.35;
+oceanMesh.material.depthWrite = false;
+oceanMesh.renderOrder = -1;
 scene.add(oceanMesh);
 
 // shallow water ring  ← REMOVED: was sitting above terrain edge, caused black ring

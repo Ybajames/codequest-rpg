@@ -276,6 +276,26 @@ html, body {
   border-bottom: 1px solid var(--border);
   display: none;
 }
+#modeToggle {
+  display: none;
+  gap: 8px;
+  padding: 10px 18px 0;
+}
+.mode-btn {
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(224,250,255,0.7);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.mode-btn.active {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgba(0,245,255,0.08);
+}
 
 #codeEditor {
   width: 100%; min-height: 140px; max-height: 200px;
@@ -284,6 +304,58 @@ html, body {
   font-family: var(--font); font-size: 13px;
   padding: 14px 18px; line-height: 1.6;
   tab-size: 4;
+}
+#choiceArea {
+  display: none;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 14px 18px 18px;
+}
+.choice-card {
+  min-height: 170px;
+  padding: 12px;
+  background: rgba(0,245,255,0.04);
+  border: 1px solid rgba(0,245,255,0.16);
+  color: #dffaff;
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.choice-card:hover {
+  background: rgba(0,245,255,0.10);
+  border-color: rgba(0,245,255,0.4);
+  transform: translateY(-1px);
+}
+.choice-card.correct {
+  border-color: var(--green);
+  background: rgba(57,255,20,0.10);
+}
+.choice-card.wrong {
+  border-color: var(--red);
+  background: rgba(255,68,68,0.10);
+}
+.choice-card:disabled {
+  cursor: default;
+  opacity: 0.92;
+  transform: none;
+}
+.choice-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  color: var(--cyan);
+  font-size: 11px;
+}
+.choice-card pre {
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 #terminalFooter {
@@ -323,6 +395,26 @@ html, body {
   white-space: pre-wrap;
 }
 #terminalOutput.error { color: var(--red); }
+
+@media (max-width: 760px) {
+  #terminalBox {
+    width: min(96vw, 760px);
+  }
+  #choiceArea {
+    grid-template-columns: 1fr;
+  }
+  .choice-card {
+    min-height: 0;
+  }
+  #terminalFooter {
+    flex-wrap: wrap;
+  }
+  #progressPips {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+}
 
 /* ── UNLOCK FLASH ────────────────────────────────────────────────────────── */
 #unlockFlash {
