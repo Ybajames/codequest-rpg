@@ -44,11 +44,13 @@ playerGroup.add(torso);
 // head
 const head = box(0.38, 0.38, 0.36, mSkin);
 head.position.set(0, 1.56, 0);
+head.visible = false;
 playerGroup.add(head);
 
 // hair
 const hair = box(0.40, 0.10, 0.38, mHair);
 hair.position.set(0, 1.78, 0);
+hair.visible = false;
 playerGroup.add(hair);
 
 // arms

@@ -155,4 +155,4 @@ Open `js/questions.js` and add to the `QUESTIONS` array:
 
 ---
 
-*Built with ❤️ for students learning Python*
+
