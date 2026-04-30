@@ -4,6 +4,7 @@ import { playCorrect, playWrong, playLevelUp } from './audio.js';
 import { addXP } from './xp.js';
 import { completeQuest } from './inventory.js';
 import { submitScore } from './leaderboard.js';
+import { createRoom, makeRoomCode, seededShuffle } from './multiplayer.js';
 
 // -- PORTAL OVERLAY CONTAINER -------------------------------------------------
 const overlay = document.createElement('div');
@@ -22,9 +23,81 @@ function closeOverlay() {
 }
 
 // ============================================================================
-// CODE ARENA -- Python Spell Duel
+// ARENA LOBBY — choose Solo vs Multiplayer
 // ============================================================================
 export function openArena(username) {
+    completeQuest('enter_arena');
+
+    openOverlay(`
+      <div id="arenaGame" class="arena-duel">
+        <div class="arena-header">
+          <span class="arena-title">⚔️ CODE ARENA</span>
+          <button class="arena-close" id="arenaClose">LEAVE</button>
+        </div>
+        <div class="lobby-screen">
+          <div class="lobby-title">Choose Your Battle</div>
+          <div class="lobby-options">
+            <button class="lobby-btn solo" id="soloBtn">
+              <span class="lobby-btn-icon">🤖</span>
+              <span class="lobby-btn-label">VS AI Bot</span>
+              <span class="lobby-btn-sub">Play solo against a bot</span>
+            </button>
+            <button class="lobby-btn multi" id="createBtn">
+              <span class="lobby-btn-icon">🌐</span>
+              <span class="lobby-btn-label">Create Room</span>
+              <span class="lobby-btn-sub">Share code with a friend</span>
+            </button>
+            <button class="lobby-btn join" id="joinBtn">
+              <span class="lobby-btn-icon">🔗</span>
+              <span class="lobby-btn-label">Join Room</span>
+              <span class="lobby-btn-sub">Enter a friend's room code</span>
+            </button>
+          </div>
+          <div id="lobbyStatus" class="lobby-status"></div>
+          <div id="lobbyCodeArea" style="display:none">
+            <div class="lobby-code" id="lobbyCode"></div>
+            <div class="lobby-code-hint">Share this code with your opponent</div>
+            <div class="lobby-waiting">⏳ Waiting for opponent to join…</div>
+          </div>
+          <div id="lobbyJoinArea" style="display:none">
+            <div class="lobby-join-row">
+              <input id="joinCodeInput" maxlength="5" placeholder="Enter code…" autocomplete="off" />
+              <button id="joinConfirmBtn">JOIN</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    document.getElementById('arenaClose').onclick = closeOverlay;
+
+    document.getElementById('soloBtn').onclick = () => {
+        openArenaSolo(username);
+    };
+
+    document.getElementById('createBtn').onclick = () => {
+        const code = makeRoomCode();
+        document.getElementById('lobbyCodeArea').style.display = 'block';
+        document.getElementById('lobbyJoinArea').style.display = 'none';
+        document.getElementById('lobbyCode').innerText = code;
+        openArenaMulti(username, code, true);
+    };
+
+    document.getElementById('joinBtn').onclick = () => {
+        document.getElementById('lobbyJoinArea').style.display = 'block';
+        document.getElementById('lobbyCodeArea').style.display = 'none';
+    };
+
+    document.getElementById('joinConfirmBtn')?.addEventListener('click', () => {
+        const code = document.getElementById('joinCodeInput')?.value.trim().toUpperCase();
+        if (code?.length === 5) openArenaMulti(username, code, false);
+    });
+}
+
+// ============================================================================
+// CODE ARENA — Solo vs AI Bot (original logic, unchanged)
+// ============================================================================
+function openArenaSolo(username) {
     completeQuest('enter_arena');
     const questions = getQuestions(8);
     const enemyName = pickEnemyName();
@@ -388,6 +461,260 @@ export function openArena(username) {
 }
 
 // ============================================================================
+// CODE ARENA — Multiplayer (real WebSocket)
+// ============================================================================
+function openArenaMulti(username, roomCode, isHost) {
+    let room      = null;
+    let opponentName = null;
+    let questions = null;
+    let qIndex    = 0;
+    let playerHP  = 100, enemyHP = 100;
+    let playerShield = 0, enemyShield = 0;
+    let playerEnergy = 0, enemyEnergy = 0;
+    let playerStreak = 0;
+    let timerInterval = null;
+    let answered  = false;
+    let arenaChoices = [];
+    let roundLog  = 'Waiting for opponent…';
+    let playerHits = 0, playerCasts = 0;
+
+    const statusEl  = document.getElementById('lobbyStatus');
+    const codeArea  = document.getElementById('lobbyCodeArea');
+    const joinArea  = document.getElementById('lobbyJoinArea');
+
+    function setStatus(msg) {
+        if (statusEl) statusEl.innerText = msg;
+    }
+
+    room = createRoom(`arena-${roomCode}`, username, 'arena', {
+        onMessage(data) {
+            if (data.type === 'room_state') {
+                const others = data.players.filter(p => p !== username);
+                if (others.length > 0) opponentName = others[0];
+                setStatus(data.players.length === 1 ? '⏳ Waiting for opponent…' : `✅ ${opponentName} joined!`);
+            }
+
+            if (data.type === 'start') {
+                opponentName = data.players.find(p => p !== username) || 'Opponent';
+                const allQ   = getQuestions(8);
+                questions    = seededShuffle(allQ, data.seed).slice(0, 8);
+                startMultiRound();
+            }
+
+            if (data.type === 'arena_answer' && data.username !== username) {
+                // Opponent answered
+                enemyHP = data.hpLeft ?? enemyHP;
+                updateMultiStage();
+                if (!answered) {
+                    // Opponent was faster — show it
+                    roundLog = `${opponentName} answered first!`;
+                    updateArenaCopy();
+                }
+            }
+
+            if (data.type === 'opponent_left') {
+                clearInterval(timerInterval);
+                setStatus(`${opponentName} left the game.`);
+                showMultiResult(true); // win by forfeit
+            }
+        },
+        onDisconnect() { setStatus('Connection lost. Returning to island…'); setTimeout(closeOverlay, 2000); },
+        onError()      { setStatus('Could not connect to server.'); },
+    });
+
+    function startMultiRound() {
+        if (!questions) return;
+        clearInterval(timerInterval);
+        answered = false;
+        const q         = questions[qIndex];
+        const role      = getArenaRole(q.topic);
+        const prompt    = parseArenaPrompt(q);
+        const interaction = getArenaInteractionMeta(q, prompt);
+        arenaChoices    = getArenaChoices(q);
+        const timeLeft  = 14;
+        roundLog        = `Round ${qIndex + 1} — cast your spell!`;
+
+        const optsHTML = arenaChoices.map((c, i) => `
+            <button class="arena-sigil ${c.isCode ? 'is-code' : ''}" data-i="${i}">
+              <span class="arena-sigil-label">${String.fromCharCode(65 + i)}</span>
+              <span class="arena-sigil-text">${renderArenaRichText(compactArenaText(c.text))}</span>
+            </button>
+        `).join('');
+
+        openOverlay(`
+          <div id="arenaGame" class="arena-duel">
+            <div class="arena-header">
+              <span class="arena-title">⚔️ LIVE ARENA</span>
+              <span class="arena-round">Round ${qIndex + 1}/${questions.length} · Room ${roomCode}</span>
+              <button class="arena-close" id="arenaClose">LEAVE</button>
+            </div>
+            <div class="arena-stage">
+              <div class="arena-combatant" id="playerSide">
+                <div class="arena-combatant-name">🧑 ${username}</div>
+                <div class="arena-stat-label">Health</div>
+                <div class="arena-bar hp"><div class="arena-bar-fill hp" id="playerHPBar" style="width:${playerHP}%"></div></div>
+                <div class="arena-stat-row"><span id="playerHPNum">${playerHP} HP</span><span>${playerShield} Shield</span></div>
+                <div class="arena-stat-label">Energy</div>
+                <div class="arena-bar energy"><div class="arena-bar-fill energy" id="playerEnergyBar" style="width:${playerEnergy}%"></div></div>
+              </div>
+              <div class="arena-center">
+                <div class="arena-versus-badge">${role.icon}</div>
+                <div class="arena-center-label">LIVE</div>
+                <div class="arena-battle-log" id="arenaBattleLog">${roundLog}</div>
+              </div>
+              <div class="arena-combatant enemy" id="enemySide">
+                <div class="arena-combatant-name">🧑 ${opponentName}</div>
+                <div class="arena-stat-label">Health</div>
+                <div class="arena-bar hp"><div class="arena-bar-fill enemy-hp" id="enemyHPBar" style="width:${enemyHP}%"></div></div>
+                <div class="arena-stat-row"><span id="enemyHPNum">${enemyHP} HP</span></div>
+                <div class="arena-stat-label">Energy</div>
+                <div class="arena-bar energy"><div class="arena-bar-fill enemy-energy" id="enemyEnergyBar" style="width:${enemyEnergy}%"></div></div>
+              </div>
+            </div>
+            <div class="arena-question-area">
+              <div class="arena-topic-row">
+                <span class="arena-topic-chip">${q.topic}</span>
+                <span class="arena-topic-chip arena-interaction-chip">${interaction.label}</span>
+              </div>
+              <div class="arena-question">${renderArenaRichText(prompt.lead)}</div>
+              ${prompt.code ? `<pre class="arena-code-panel">${escapeHtml(prompt.code)}</pre>` : ''}
+              <div class="arena-spell-grid" id="arenaOpts">${optsHTML}</div>
+            </div>
+            <div class="arena-footer">
+              <span id="timerSec">${timeLeft}s</span>
+              <div class="timer-bar-wrap"><div class="timer-bar" id="timerBar" style="width:100%"></div></div>
+              <span class="arena-footer-copy">${interaction.hint}</span>
+            </div>
+          </div>
+        `);
+
+        document.getElementById('arenaClose').onclick = () => { room?.close(); closeOverlay(); };
+        document.querySelectorAll('.arena-sigil').forEach(btn => {
+            btn.addEventListener('click', () => resolveMultiRound(btn, q, role));
+        });
+
+        let remaining = timeLeft;
+        timerInterval = setInterval(() => {
+            remaining--;
+            const el  = document.getElementById('timerSec');
+            const bar = document.getElementById('timerBar');
+            if (el)  el.innerText         = `${remaining}s`;
+            if (bar) bar.style.width      = (remaining / timeLeft * 100) + '%';
+            if (remaining <= 0 && !answered) {
+                clearInterval(timerInterval);
+                answered = true;
+                lockMultiChoices(q);
+                roundLog = 'Time ran out!';
+                updateArenaCopy();
+                // Still send our (wrong) answer so opponent knows
+                room?.send({ type: 'arena_answer', username, correct: false, hpLeft: playerHP, damage: 0, qIndex });
+                setTimeout(advanceMultiRound, 1600);
+            }
+        }, 1000);
+    }
+
+    function resolveMultiRound(btn, q, role) {
+        if (answered) return;
+        answered = true;
+        clearInterval(timerInterval);
+        const chosen  = arenaChoices[+btn.dataset.i];
+        const correct = !!chosen?.correct;
+        lockMultiChoices(q);
+        btn.classList.add(correct ? 'correct' : 'wrong');
+
+        let damage = 0;
+        if (correct) {
+            playerHits++; playerCasts++;
+            playerStreak++;
+            damage         = role.damage + q.difficulty * 3 + Math.min(playerStreak, 3) * 2;
+            const blocked  = Math.min(enemyShield, damage);
+            enemyShield   -= blocked;
+            enemyHP        = Math.max(0, enemyHP - (damage - blocked));
+            playerEnergy   = clamp100(playerEnergy + role.energy + q.difficulty * 6);
+            roundLog       = `${username} cast ${role.spell} for ${damage - Math.min(enemyShield, damage)} damage!`;
+            playCorrect();
+            addXP(20 + q.difficulty * 5, 'arena spell');
+        } else {
+            playerStreak = 0;
+            roundLog     = `${username} miscast the ${role.spell}!`;
+            playWrong();
+        }
+
+        room?.send({ type: 'arena_answer', username, correct, hpLeft: playerHP, damage, qIndex });
+        updateMultiStage();
+        updateArenaCopy();
+        setTimeout(advanceMultiRound, 1600);
+    }
+
+    function lockMultiChoices(q) {
+        document.querySelectorAll('.arena-sigil').forEach(b => {
+            if (arenaChoices[+b.dataset.i]?.correct) b.classList.add('correct');
+            b.disabled = true;
+        });
+    }
+
+    function updateMultiStage() {
+        const ph = document.getElementById('playerHPBar');
+        const eh = document.getElementById('enemyHPBar');
+        const pn = document.getElementById('playerHPNum');
+        const en = document.getElementById('enemyHPNum');
+        const pe = document.getElementById('playerEnergyBar');
+        const ee = document.getElementById('enemyEnergyBar');
+        if (ph) ph.style.width = playerHP + '%';
+        if (eh) eh.style.width = enemyHP  + '%';
+        if (pn) pn.innerText   = playerHP + ' HP';
+        if (en) en.innerText   = enemyHP  + ' HP';
+        if (pe) pe.style.width = playerEnergy + '%';
+        if (ee) ee.style.width = enemyEnergy  + '%';
+    }
+
+    function advanceMultiRound() {
+        if (playerHP <= 0 || enemyHP <= 0 || qIndex >= questions.length - 1) {
+            showMultiResult(false);
+            return;
+        }
+        qIndex++;
+        startMultiRound();
+    }
+
+    function showMultiResult(forfeit) {
+        clearInterval(timerInterval);
+        room?.close();
+        const won = forfeit || playerHP > enemyHP;
+        if (won) { playLevelUp(); addXP(200, 'arena multi win'); }
+        submitScore('arena', username, playerHP, 100);
+
+        openOverlay(`
+          <div id="arenaGame" class="arena-duel">
+            <div class="arena-header"><span class="arena-title">⚔️ DUEL COMPLETE</span></div>
+            <div class="result-screen">
+              <span class="result-emoji">${won ? '🏆' : '💀'}</span>
+              <div class="result-title" style="color:${won ? '#64ff72' : '#ff6b6b'}">
+                ${forfeit ? 'WIN BY FORFEIT!' : won ? 'VICTORY!' : 'DEFEATED!'}
+              </div>
+              <div class="result-sub">
+                🧑 ${username}: ${playerHP} HP<br>
+                🧑 ${opponentName}: ${enemyHP} HP<br>
+                ${won ? '+200 XP Live Victory!' : 'Train harder and challenge again!'}
+              </div>
+              <div style="display:flex;gap:12px;justify-content:center">
+                <button class="result-btn" style="border:1px solid #2196f3;color:#2196f3" id="multiRematch">REMATCH</button>
+                <button class="result-btn" style="border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5)" id="multiLeave">ISLAND</button>
+              </div>
+            </div>
+          </div>
+        `);
+        document.getElementById('multiRematch').onclick = () => openArena(username);
+        document.getElementById('multiLeave').onclick   = closeOverlay;
+    }
+
+    function updateArenaCopy() {
+        const bl = document.getElementById('arenaBattleLog');
+        if (bl) bl.innerText = roundLog;
+    }
+}
+
+// ============================================================================
 // CODE RACE -- Answer correctly to move your car
 // ============================================================================
 export function openRace(username) {
@@ -402,6 +729,10 @@ export function openRace(username) {
 
     function render() {
         const q = questions[qIndex % questions.length];
+        const optsHTML = q.options.map((opt, i) => `
+            <button class="race-opt" data-i="${i}">${opt}</button>
+        `).join('');
+
         openOverlay(`
           <div id="raceGame">
             <div class="race-header">
@@ -424,64 +755,54 @@ export function openRace(username) {
             </div>
             <div class="race-question-area">
               <div class="race-question">${q.q}</div>
-              <div style="font-size:11px;color:rgba(224,250,255,0.4);margin-bottom:6px">
-                Type the correct answer (or the letter A/B/C/D):<br>
-                ${q.options.map((o, i) => `<strong style="color:#ef9a9a">${'ABCD'[i]}.</strong> ${o}`).join('  &nbsp;&nbsp;  ')}
-              </div>
-              <input id="raceCodeInput" type="text" placeholder="Your answer..." autocomplete="off" />
-            </div>
-            <div class="race-footer">
-              <button id="raceSubmitBtn">SUBMIT</button>
-              <span class="race-feedback" id="raceFeedback"></span>
+              <div class="race-options" id="raceOpts">${optsHTML}</div>
+              <div class="race-feedback" id="raceFeedback"></div>
             </div>
           </div>
         `);
 
         document.getElementById('raceClose').onclick = closeOverlay;
-
-        const input = document.getElementById('raceCodeInput');
-        const subBtn = document.getElementById('raceSubmitBtn');
         const fb = document.getElementById('raceFeedback');
-        input.focus();
 
-        function submit() {
-            const val = input.value.trim();
-            if (!val) return;
+        document.querySelectorAll('.race-opt').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Disable all buttons immediately
+                document.querySelectorAll('.race-opt').forEach(b => { b.disabled = true; });
 
-            const letter = val.toUpperCase();
-            const letterIdx = 'ABCD'.indexOf(letter);
-            const chosen = letterIdx >= 0 ? q.options[letterIdx] : val;
-            const correct = chosen === q.answer || val.toLowerCase() === q.answer.toLowerCase();
+                const chosen = q.options[+btn.dataset.i];
+                const correct = chosen === q.answer;
 
-            if (correct) {
-                playCorrect();
-                addXP(15, 'race correct');
-                myPos = Math.min(MAX_POS, myPos + 12 + Math.random() * 5);
-                fb.style.color = '#39ff14';
-                fb.innerText = 'Correct! +12% speed boost!';
-            } else {
-                playWrong();
-                myPos = Math.min(MAX_POS, myPos + 2);
-                fb.style.color = '#ff4444';
-                fb.innerText = `Answer: ${q.answer}`;
-            }
+                btn.classList.add(correct ? 'correct' : 'wrong');
+                // Always highlight correct answer
+                document.querySelectorAll('.race-opt').forEach(b => {
+                    if (q.options[+b.dataset.i] === q.answer) b.classList.add('correct');
+                });
 
-            enemyPos = Math.min(MAX_POS, enemyPos + 8 + Math.random() * 8);
-            updateCars();
+                if (correct) {
+                    playCorrect();
+                    addXP(15, 'race correct');
+                    myPos = Math.min(MAX_POS, myPos + 12 + Math.random() * 5);
+                    fb.style.color = '#39ff14';
+                    fb.innerText = '✅ Correct! +speed boost!';
+                } else {
+                    playWrong();
+                    myPos = Math.min(MAX_POS, myPos + 2);
+                    fb.style.color = '#ff4444';
+                    fb.innerText = `❌ Answer: ${q.answer}`;
+                }
 
-            if (myPos >= MAX_POS || enemyPos >= MAX_POS || qIndex + 1 >= questions.length) {
-                setTimeout(showRaceResult, 1200);
-                return;
-            }
+                enemyPos = Math.min(MAX_POS, enemyPos + 8 + Math.random() * 8);
+                updateCars();
 
-            qIndex++;
-            setTimeout(() => {
-                if (!raceOver) render();
-            }, 1300);
-        }
+                if (myPos >= MAX_POS || enemyPos >= MAX_POS || qIndex + 1 >= questions.length) {
+                    setTimeout(showRaceResult, 1400);
+                    return;
+                }
 
-        subBtn.onclick = submit;
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+                qIndex++;
+                setTimeout(() => { if (!raceOver) render(); }, 1400);
+            });
+        });
     }
 
     function updateCars() {

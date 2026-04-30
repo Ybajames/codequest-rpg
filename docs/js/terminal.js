@@ -3,7 +3,6 @@
 import { playCorrect, playWrong, playUnlock } from './audio.js';
 import { unlockAbility }  from './inventory.js';
 import { addXP }          from './xp.js';
-import { renderer }       from './state.js';
 
 export let terminalOpen = false;
 
@@ -75,10 +74,8 @@ function loadChallenge() {
     const ch = currentNPC.challenges[currentChallenge];
     if (!ch) return;
 
-    const canUseChoiceMode = Array.isArray(ch.choices) && typeof ch.correctChoice === 'number';
-    const preferChoiceMode = renderer.xr.isPresenting || isCompactInput();
-    if (!canUseChoiceMode) interactionMode = 'code';
-    else if (!modeToggle.dataset.userPicked) interactionMode = preferChoiceMode ? 'choice' : 'code';
+    // Always use choice mode — no typing in VR or on any device
+    interactionMode = 'choice';
 
     termTitle.innerText      = `${currentNPC.name} — ${currentNPC.ability} (${currentChallenge + 1}/${currentNPC.challenges.length})`;
     descEl.innerText         = ch.description;
@@ -87,7 +84,8 @@ function loadChallenge() {
     outputEl.className       = '';
     hintEl.style.display     = 'none';
     hintEl.innerText         = '';
-    renderModeToggle(ch);
+    modeToggle.innerHTML     = '';
+    modeToggle.style.display = 'none';
     renderInteractionUI(ch);
 
     // Build progress pips
@@ -124,15 +122,10 @@ function renderModeToggle(ch) {
 }
 
 function renderInteractionUI(ch) {
-    const useChoiceMode = interactionMode === 'choice' && Array.isArray(ch.choices);
-    editor.style.display = useChoiceMode ? 'none' : 'block';
-    runBtn.style.display = useChoiceMode ? 'none' : 'inline-flex';
-    choiceArea.style.display = useChoiceMode ? 'grid' : 'none';
-
-    if (!useChoiceMode) {
-        choiceArea.innerHTML = '';
-        return;
-    }
+    // Always choice mode — hide code editor and run button completely
+    editor.style.display = 'none';
+    runBtn.style.display = 'none';
+    choiceArea.style.display = 'grid';
 
     choiceArea.innerHTML = ch.choices.map((choice, i) => `
         <button class="choice-card" data-choice="${i}">

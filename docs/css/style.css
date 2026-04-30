@@ -815,26 +815,28 @@ html, body {
   background: rgba(0,0,0,0.3); padding: 10px 14px;
   border-left: 3px solid #f44336; margin-bottom: 10px;
 }
-#raceCodeInput {
-  width: 100%; background: rgba(0,0,0,0.4);
+.race-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.race-opt {
+  padding: 12px 14px;
+  background: rgba(244,67,54,0.06);
   border: 1px solid rgba(244,67,54,0.25);
-  color: #ffccbc; font-family: var(--font); font-size: 13px;
-  padding: 10px 14px; outline: none; border-radius: 2px;
-  transition: border-color 0.2s;
+  color: #fff; font-family: var(--font); font-size: 13px;
+  cursor: pointer; text-align: left; border-radius: 3px;
+  transition: background 0.15s, border-color 0.15s;
+  line-height: 1.5;
 }
-#raceCodeInput:focus { border-color: #f44336; }
-.race-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 20px; border-top: 1px solid rgba(244,67,54,0.15);
-}
-#raceSubmitBtn {
-  padding: 8px 20px;
-  background: transparent; border: 1px solid #f44336;
-  color: #f44336; font-family: var(--font); font-size: 12px; cursor: pointer;
-}
-#raceSubmitBtn:hover { background: rgba(244,67,54,0.1); }
+.race-opt:hover:not(:disabled)  { background: rgba(244,67,54,0.18); border-color: #f44336; }
+.race-opt.correct { background: rgba(57,255,20,0.15);  border-color: var(--green); color: var(--green); }
+.race-opt.wrong   { background: rgba(255,68,68,0.15);  border-color: var(--red);   color: var(--red); }
+.race-opt:disabled { opacity: 0.7; cursor: default; }
 .race-feedback {
-  font-size: 11px; height: 18px;
+  font-size: 12px; min-height: 20px;
+  margin-top: 8px; padding: 0 2px;
   transition: color 0.2s;
 }
 
@@ -905,3 +907,53 @@ html, body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: #0a0f1e; }
 ::-webkit-scrollbar-thumb { background: rgba(0,245,255,0.3); border-radius: 2px; }
+
+/* ── LOBBY SCREEN ──────────────────────────────────────────────────────────── */
+.lobby-screen {
+  padding: 28px 24px; text-align: center;
+}
+.lobby-title {
+  font-size: 18px; color: #2196f3; letter-spacing: .12em;
+  margin-bottom: 22px; text-shadow: 0 0 16px #2196f3;
+}
+.lobby-options {
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.lobby-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 18px 22px; min-width: 140px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px; cursor: pointer; font-family: var(--font);
+  transition: background .2s, box-shadow .2s;
+}
+.lobby-btn.solo  { border: 1px solid rgba(33,150,243,.4);  color: #64b5f6; }
+.lobby-btn.multi { border: 1px solid rgba(57,255,20,.4);   color: #69ff47; }
+.lobby-btn.join  { border: 1px solid rgba(255,213,79,.4);  color: #ffd54f; }
+.lobby-btn:hover { background: rgba(255,255,255,.07); box-shadow: 0 0 18px rgba(255,255,255,.08); }
+.lobby-btn-icon  { font-size: 28px; }
+.lobby-btn-label { font-size: 13px; letter-spacing: .08em; }
+.lobby-btn-sub   { font-size: 10px; color: rgba(224,250,255,.4); }
+.lobby-status    { font-size: 12px; color: rgba(224,250,255,.5); min-height: 18px; margin-bottom: 10px; }
+.lobby-code {
+  font-size: 36px; letter-spacing: .3em; color: #00f5ff;
+  text-shadow: 0 0 20px #00f5ff; font-weight: bold;
+  padding: 10px; background: rgba(0,245,255,.06);
+  border: 1px solid rgba(0,245,255,.2); border-radius: 3px;
+  display: inline-block; margin-bottom: 8px;
+}
+.lobby-code-hint { font-size: 11px; color: rgba(224,250,255,.4); margin-bottom: 6px; }
+.lobby-waiting   { font-size: 12px; color: #ffd54f; }
+.lobby-join-row  { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
+.lobby-join-row input {
+  padding: 10px 14px; background: rgba(0,0,0,.4);
+  border: 1px solid rgba(255,213,79,.3); color: #fff;
+  font-family: var(--font); font-size: 16px; letter-spacing: .2em;
+  border-radius: 2px; outline: none; width: 140px; text-align: center;
+  text-transform: uppercase;
+}
+.lobby-join-row button {
+  padding: 10px 18px; background: transparent;
+  border: 1px solid #ffd54f; color: #ffd54f;
+  font-family: var(--font); font-size: 13px; cursor: pointer;
+}

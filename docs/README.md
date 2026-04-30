@@ -156,3 +156,34 @@ Open `js/questions.js` and add to the `QUESTIONS` array:
 ---
 
 
+
+---
+
+## 🌐 Multiplayer Setup (Partykit)
+
+The Arena supports real-time 1v1 battles via Partykit (free).
+
+### Deploy the server (one time only)
+
+```bash
+cd server
+npm install partykit
+npx partykit deploy
+```
+
+After deploy you get a URL like: `codequest.YOUR_USERNAME.partykit.dev`
+
+### Connect the client
+
+Open `docs/js/multiplayer.js` and replace line 5:
+```js
+const PARTYKIT_HOST = 'codequest.YOUR_USERNAME.partykit.dev';
+```
+
+Push to GitHub — multiplayer is live!
+
+### How it works
+1. Player A enters Arena → clicks **Create Room** → gets a 5-letter code (e.g. `XK3TY`)
+2. Player B enters Arena → clicks **Join Room** → types `XK3TY`
+3. Both players get the **same questions** (seeded random) and battle live
+4. HP, damage, and answers sync in real time via WebSocket
